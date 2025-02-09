@@ -3,8 +3,8 @@ import random
 import numpy as np
 
 # Valores por defecto
-NUM_COMMANDS = 10
-MAX_CLAVES = 20
+NUM_COMMANDS = 200
+MAX_CLAVES = 50
 MAX_SIZE_VALOR = 10
 READ_PROB = 0.5
 

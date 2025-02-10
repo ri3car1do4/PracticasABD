@@ -5,8 +5,8 @@ from typing import Optional, List, Tuple
 from tabla_base import TablaBase
 from pathlib import Path
 
-class Segmento(TablaBase):
 
+class Segmento(TablaBase):
     NUM_REGISTROS = 50
 
     def __init__(self, nombre_tabla: str):
@@ -22,7 +22,7 @@ class Segmento(TablaBase):
             if clave in self.diccionario:
                 offset = self.diccionario[clave]
                 f.seek(offset)
-                valor = f.readline() # lee la línea hasta un salto de línea
+                valor = f.readline()  # lee la línea hasta un salto de línea
         return valor
 
     def escribir(self, clave: int, valor: str) -> bool:
@@ -52,7 +52,7 @@ class Tabla1_4(TablaBase):
         self.nombre_tabla = nombre_tabla
         self.tiempos: List[Tuple[str, float]] = []
 
-        self.dir = Path('Practica1')
+        self.dir = Path('C:/Users/Ricardo/Documents/GitHub/PracticasABD/Practica1/dir')
         self.dir.mkdir(exist_ok=True)
 
         self.segmentos = self._cargar_segmentos()
@@ -71,8 +71,7 @@ class Tabla1_4(TablaBase):
 
     def _nuevo_segmento(self) -> Segmento:
         self.nSegmentos += 1
-        segmento = Segmento(f"{self.nSegmentos}.txt")
-        self.segmentos.append(segmento)
+        segmento = Segmento(f"{self.dir}/{self.nSegmentos}.txt")
         self.consolidacion += 1
         if self.consolidacion >= 10:
             self._consolidacion()
@@ -80,7 +79,7 @@ class Tabla1_4(TablaBase):
 
     def _consolidacion(self):
         self.consolidacion = 0
-        segmento_consolidado = self._nuevo_segmento() # Segmento de consolidación
+        segmento_consolidado = self._nuevo_segmento()  # Segmento de consolidación
 
         claves_almacenadas = {}
         for segmento in reversed(self.segmentos):
@@ -96,8 +95,6 @@ class Tabla1_4(TablaBase):
             os.remove(segmento.nombre_tabla)
 
         self.segmentos = [segmento_consolidado]
-
-
 
     def leer(self, clave: int) -> Optional[str]:
         inicio = time.time()
@@ -138,10 +135,11 @@ class Tabla1_4(TablaBase):
                 elif partes[0] == "e":
                     clave, valor = partes[1], partes[2]
                     self.escribir(clave, valor)
-       
+
     def tiempos(self) -> List[Tuple[str, float]]:
         return self.tiempos
 
+
 if __name__ == "__main__":
     tabla1_4 = Tabla1_4("tabla1_4.txt")
-    tabla1_4.procesar_operaciones("archivo2.txt")
+    tabla1_4.procesar_operaciones("archivo3.txt")

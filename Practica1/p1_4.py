@@ -22,7 +22,8 @@ class Segmento(TablaBase):
             if clave in self.diccionario:
                 offset = self.diccionario[clave]
                 f.seek(offset)
-                valor = f.readline()  # lee la línea hasta un salto de línea
+                comas = f.readline().split(',')  # lee la línea hasta un salto de línea
+                valor = ','.join(comas[1:])
         return valor
 
     def escribir(self, clave: int, valor: str) -> bool:

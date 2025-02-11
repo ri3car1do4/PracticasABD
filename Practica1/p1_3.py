@@ -33,7 +33,8 @@ class Tabla1_3(TablaBase):
             if clave in self.diccionario:
                 offset = self.diccionario[clave]
                 f.seek(offset)
-                valor = f.readline() # lee la línea hasta un salto de línea
+                comas = f.readline().split(',')  # lee la línea hasta un salto de línea
+                valor = ','.join(comas[1:])
         fin = time.time()
         self.tiempos.append(("e", fin - inicio))
         return valor

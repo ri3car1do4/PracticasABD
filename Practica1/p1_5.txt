@@ -1,0 +1,31 @@
+¿Qué ocurre si se hacen muchas más lecturas que escrituras?
+
+Si hay muchas más lecturas que escrituras, las diferencias en rendimiento entre las implementaciones se hacen evidentes:
+
+Tabla1_2: Como la búsqueda se realiza recorriendo el archivo en orden inverso, las lecturas son más lentas a medida que aumenta el tamaño del archivo.
+
+Tabla1_3: Mejora significativamente el tiempo de lectura, ya que utiliza un diccionario que almacena las posiciones de las claves, permitiendo accesos directos y rápidos, pero el archivo puede volverse muy grande si hay muchas operaciones.
+
+Tabla1_4: Mantiene un equilibrio, ya que utiliza múltiples segmentos de almacenamiento. Sin embargo, si la cantidad de segmentos es grande, la búsqueda puede volverse más costosa.
+
+En este caso, Tabla1_4 ofrece la mejor optimización en términos de lecturas, ya que permite un acceso más rápido a los datos sin recorrer todo el archivo.
+
+¿Y en caso contrario?
+
+Si se realizan muchas más escrituras que lecturas:
+
+Tabla1_2: La escritura es eficiente, ya que simplemente añade registros al final del archivo, pero esto puede generar un archivo muy grande con redundancia.
+
+Tabla1_3: También realiza escrituras eficientes, pero debe actualizar su diccionario de posiciones, lo que introduce una ligera sobrecarga.
+
+Tabla1_4: Usa segmentos, lo que puede ralentizar el proceso cuando se requiere consolidación. Sin embargo, este enfoque evita un archivo excesivamente grande y mejora la gestión de los datos.
+
+En este caso, Tabla1_2 y Tabla1_3 ofrecen un buen rendimiento en escritura, pero Tabla1_4 es más lento por la cantidad de ficheros que generan los segmentos aunque puede ser la mejor opción para mantener la organización de los datos.
+
+¿Cómo se comportan las distintas implementaciones si se realizan múltiples escrituras al mismo conjunto de claves de forma repetida?
+
+Tabla1_2: Se generan múltiples entradas para la misma clave, aumentando el tamaño del archivo y ralentizando las lecturas.
+
+Tabla1_3: Mantiene solo la última posición escrita en su diccionario, evitando accesos innecesarios a versiones antiguas.
+
+Tabla1_4: Al usar segmentos, permite múltiples versiones de la misma clave hasta que se realiza la consolidación, lo que mejora la eficiencia en algunos casos.

@@ -51,7 +51,7 @@ class Tabla1_4(TablaBase):
 
     def __init__(self, nombre_tabla: str):
         self.nombre_tabla = nombre_tabla
-        self.tiempos: List[Tuple[str, float]] = []
+        self.tiempos1_4: List[Tuple[str, float]] = []
 
         self.dir = Path('C:/Users/Ricardo/Documents/GitHub/PracticasABD/Practica1/dir')
         self.dir.mkdir(exist_ok=True)
@@ -102,12 +102,14 @@ class Tabla1_4(TablaBase):
         valor = None
         if len(self.segmentos) > 0:
             i = len(self.segmentos) - 1
-            while i >= 0 and self.segmentos[i].leer(clave) is None:
+            aux = self.segmentos[i].leer(clave)
+            while i >= 0 and aux is None:
                 i -= 1
+                aux = self.segmentos[i].leer(clave)
             if i >= 0:
-                valor = self.segmentos[i].leer(clave)
+                valor = aux
         fin = time.time()
-        self.tiempos.append(("e", fin - inicio))
+        self.tiempos1_4.append(("l", fin - inicio))
         return valor
 
     def escribir(self, clave: int, valor: str) -> bool:
@@ -118,7 +120,7 @@ class Tabla1_4(TablaBase):
         self.segmentos[-1].escribir(clave, valor)
 
         fin = time.time()
-        self.tiempos.append(("e", fin - inicio))
+        self.tiempos1_4.append(("e", fin - inicio))
         return True
 
     def procesar_operaciones(self, archivo: str) -> None:
@@ -138,7 +140,7 @@ class Tabla1_4(TablaBase):
                     self.escribir(clave, valor)
 
     def tiempos(self) -> List[Tuple[str, float]]:
-        return self.tiempos
+        return self.tiempos1_4
 
 
 if __name__ == "__main__":

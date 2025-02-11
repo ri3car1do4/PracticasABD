@@ -8,7 +8,7 @@ class Tabla1_2(TablaBase):
 
     def __init__(self, nombre_tabla: str):
         self.nombre_tabla = nombre_tabla
-        self.tiempos: List[Tuple[str, float]] = []
+        self.tiempos1_2: List[Tuple[str, float]] = []
 
         # Verificamos si el archivo existe; si no, se crea vacío
         if not os.path.exists(self.nombre_tabla):
@@ -48,7 +48,7 @@ class Tabla1_2(TablaBase):
 
                         
         fin = time.time()
-        self.tiempos.append(("e", fin - inicio))
+        self.tiempos1_2.append(("l", fin - inicio))
         return valor
 
     def escribir(self, clave: int, valor: str) -> bool:
@@ -56,7 +56,7 @@ class Tabla1_2(TablaBase):
         with open(self.nombre_tabla, 'a') as f:
             f.write(f"{clave},{valor}\n")
         fin = time.time()
-        self.tiempos.append(("e", fin - inicio))
+        self.tiempos1_2.append(("e", fin - inicio))
         return True
 
     def procesar_operaciones(self, archivo: str) -> None:
@@ -76,7 +76,7 @@ class Tabla1_2(TablaBase):
                     self.escribir(clave, valor)
        
     def tiempos(self) -> List[Tuple[str, float]]:
-        return self.tiempos
+        return self.tiempos1_2
 
 
 if __name__ == "__main__":

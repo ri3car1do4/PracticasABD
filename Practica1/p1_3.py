@@ -8,7 +8,7 @@ class Tabla1_3(TablaBase):
 
     def __init__(self, nombre_tabla: str):
         self.nombre_tabla = nombre_tabla
-        self.tiempos: List[Tuple[str, float]] = []
+        self.tiempos1_3: List[Tuple[str, float]] = []
         self.diccionario = {}
 
         if os.path.exists(self.nombre_tabla):
@@ -24,6 +24,9 @@ class Tabla1_3(TablaBase):
                         for val in comas[2:]:
                             valor = valor + ',' + val
                     offset = f.tell() + len(valor)
+        else:
+            with open(self.nombre_tabla, 'w') as f:
+                pass  # Crea el archivo vacío
 
 
     def leer(self, clave: int) -> Optional[str]:
@@ -36,7 +39,7 @@ class Tabla1_3(TablaBase):
                 comas = f.readline().split(',')  # lee la línea hasta un salto de línea
                 valor = ','.join(comas[1:])
         fin = time.time()
-        self.tiempos.append(("e", fin - inicio))
+        self.tiempos1_3.append(("l", fin - inicio))
         return valor
 
     def escribir(self, clave: int, valor: str) -> bool:
@@ -45,7 +48,7 @@ class Tabla1_3(TablaBase):
             self.diccionario[clave] = f.tell()
             f.write(f"{clave},{valor}\n")
         fin = time.time()
-        self.tiempos.append(("e", fin - inicio))
+        self.tiempos1_3.append(("e", fin - inicio))
 
     def procesar_operaciones(self, archivo: str) -> None:
 
@@ -64,7 +67,7 @@ class Tabla1_3(TablaBase):
                     self.escribir(clave, valor)
        
     def tiempos(self) -> List[Tuple[str, float]]:
-        return self.tiempos
+        return self.tiempos1_3
 
 
 if __name__ == "__main__":

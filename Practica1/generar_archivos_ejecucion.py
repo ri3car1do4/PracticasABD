@@ -6,7 +6,7 @@ import numpy as np
 NUM_COMMANDS = 2000
 MAX_CLAVES = 50
 MAX_SIZE_VALOR = 10
-READ_PROB = 0.5
+READ_PROB = 0.01
 
 
 def comandos_aleatorios(num_commands: int = NUM_COMMANDS, max_claves: int = MAX_CLAVES,

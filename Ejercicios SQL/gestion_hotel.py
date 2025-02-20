@@ -10,7 +10,7 @@ class GestionHotel:
 
     def __init__(self):
         self._config_params = self._load_config()
-        print(self._config_params)
+        # print(self._config_params)
         self._conexion = psycopg2.connect(**self._config_params)
 
     def _load_config(self):
@@ -130,6 +130,31 @@ class GestionHotel:
             """, (dni, nombre, apellido, ciudad, fechaNac, telefono))
         self._conexion.commit()
 
+    def misma_ciudad(self) -> List[Tuple[str, str]]:
+        with self._conexion.cursor() as cursor:
+            cursor.execute(f"""
+            SELECT Participantes.Nombre, Participantes.Apellido
+            FROM Alojamientos join Reservas on Alojamientos.IdAlojamiento = Reservas.IdAlojamiento
+            join Formaliza on Reservas.IdReserva = Formaliza.IdReserva
+            join Participantes on Formaliza.DNI = Participantes.DNI
+            WHERE Participantes.Ciudad IS NOT NULL AND Participantes.Ciudad = Alojamientos.Ciudad
+            ORDER BY Participantes.Apellido ASC
+            """)
+            return cursor.fetchall()
+
+    def informacion_reservas(self) -> List[Tuple[str, str, int, int, float]]:
+        with self._conexion.cursor() as cursor:
+            cursor.execute(f"""
+            SELECT Participantes.Nombre, Participantes.Apellido, COALESCE(COUNT(DISTINCT Reservas.IdReserva), 0), 
+            COALESCE(COUNT(DISTINCT Alojamientos.Ciudad), 0), COALESCE(SUM(Reservas.Precio), 0)
+            FROM Participantes 
+            LEFT JOIN Formaliza ON Formaliza.DNI = Participantes.DNI
+            LEFT JOIN Reservas ON Formaliza.IdReserva = Reservas.IdReserva
+            LEFT JOIN Alojamientos ON Reservas.IdAlojamiento = Alojamientos.IdAlojamiento
+            GROUP BY Participantes.DNI
+            """)
+            return cursor.fetchall()
+
     def servicios_por_cliente(self, apellido: str, fecha: datetime.date) -> List[Tuple[str, str]]:
         """
         Queremos implementar una función que liste el nombre de los
@@ -167,6 +192,7 @@ class GestionHotel:
 if __name__ == "__main__":
     gestion = GestionHotel()
     gestion._create_tables()
-    gestion.iniciar_bd()
-
+    # gestion.iniciar_bd()
+    print(gestion.misma_ciudad())
+    print(gestion.informacion_reservas())
     gestion._close_conexion()

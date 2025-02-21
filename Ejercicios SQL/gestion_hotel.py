@@ -130,7 +130,7 @@ class GestionHotel:
             """, (dni, nombre, apellido, ciudad, fechaNac, telefono))
         self._conexion.commit()
 
-    def misma_ciudad(self) -> List[Tuple[str, str]]:
+    def misma_ciudad(self) -> List[Tuple[str, str]]: # Esquema: (Nombre, Apellido)
         with self._conexion.cursor() as cursor:
             cursor.execute(f"""
             SELECT Participantes.Nombre, Participantes.Apellido
@@ -142,7 +142,7 @@ class GestionHotel:
             """)
             return cursor.fetchall()
 
-    def informacion_reservas(self) -> List[Tuple[str, str, int, int, float]]:
+    def informacion_reservas(self) -> List[Tuple[str, str, int, int, float]]: # Esquema: (Nombre, Apellido, NumReservas, NumCiudades, SumaPrecios)
         with self._conexion.cursor() as cursor:
             cursor.execute(f"""
             SELECT Participantes.Nombre, Participantes.Apellido, COALESCE(COUNT(DISTINCT Reservas.IdReserva), 0), 
@@ -153,6 +153,27 @@ class GestionHotel:
             LEFT JOIN Alojamientos ON Reservas.IdAlojamiento = Alojamientos.IdAlojamiento
             GROUP BY Participantes.DNI
             """)
+            return cursor.fetchall()
+
+    def reservas_no_formalizadas(self) -> List[Tuple[str, int]]: # Esquema: (idReserva, Precio)
+        with self._conexion.cursor() as cursor:
+            cursor.execute(f"""
+            SELECT Reservas.IdReserva, Reservas.Precio
+            FROM Reservas 
+            LEFT JOIN Formaliza ON Reservas.IdReserva = Formaliza.IdReserva
+            WHERE Formaliza.DNI IS NULL
+            ORDER BY Reservas.Precio
+            """)
+            return cursor.fetchall()
+
+    def sin_reservas(self, fecha: datetime.date) -> List[Tuple[str, int, str]]: # Esquema: (idAlojamiento, MaxPersonas, Ciudad)
+        with self._conexion.cursor() as cursor:
+            cursor.execute(f"""
+            SELECT Alojamientos.idAlojamiento, COALESCE(Alojamientos.MaxPersonas, 0), Alojamientos.Ciudad
+            FROM Alojamientos 
+            JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento
+            WHERE fecha = ? NOT BETWEEN Reservas.FechaEntrada AND Reservas.FechaSalida
+            """, (fecha))
             return cursor.fetchall()
 
     def servicios_por_cliente(self, apellido: str, fecha: datetime.date) -> List[Tuple[str, str]]:
@@ -195,4 +216,6 @@ if __name__ == "__main__":
     # gestion.iniciar_bd()
     print(gestion.misma_ciudad())
     print(gestion.informacion_reservas())
+    print(gestion.reservas_no_formalizadas())
+    print(gestion.sin_reservas('2025-02-21'))
     gestion._close_conexion()

@@ -12,6 +12,7 @@ class GestionHotel:
         self._config_params = self._load_config()
         # print(self._config_params)
         self._conexion = psycopg2.connect(**self._config_params)
+        self._create_tables()
 
     def _load_config(self):
         load_dotenv(override=True)
@@ -171,40 +172,56 @@ class GestionHotel:
             cursor.execute(f"""
             SELECT Alojamientos.idAlojamiento, COALESCE(Alojamientos.MaxPersonas, 0), Alojamientos.Ciudad
             FROM Alojamientos 
-            JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento
-            WHERE fecha = ? NOT BETWEEN Reservas.FechaEntrada AND Reservas.FechaSalida
-            """, (fecha))
+            LEFT JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento 
+            AND %s BETWEEN Reservas.FechaEntrada AND Reservas.FechaSalida
+            WHERE Reservas.IdReserva IS NULL 
+            """, (fecha,))
             return cursor.fetchall()
 
-    def servicios_por_cliente(self, apellido: str, fecha: datetime.date) -> List[Tuple[str, str]]:
-        """
-        Queremos implementar una función que liste el nombre de los
-        clientes con un apellido dado (**apellido**) y de los servicios que
-        han contratado a partir de una fecha concreta (**fecha**), ordenado
-        primero por nombre del cliente y después por el del servicio, ambos ascendentemente.
-        """
+    def mas_reservas_anyo(self, anyo: int) -> List[Tuple[str, int]]: # Esquema: (Ciudad, NumReservas)
         with self._conexion.cursor() as cursor:
-            patron = f"%{apellido}%"
             cursor.execute(f"""
-            SELECT Clientes.nombre, Servicios.nombre
-            FROM Clientes join Contratado on Clientes.DNI = Contratado.DNICliente
-            join Servicios on Servicios.id = Contratado.idServicio
-            WHERE Clientes.nombre like %s AND %s <= Contratado.fecha
-            ORDER BY Clientes.nombre ASC, Servicios.nombre ASC
-            """, (patron, fecha))
+            SELECT Alojamientos.Ciudad, COUNT(*) as NumReservas
+            FROM Alojamientos 
+            JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento 
+            WHERE %s = EXTRACT(YEAR FROM Reservas.FechaEntrada)
+            GROUP BY Alojamientos.Ciudad
+            ORDER BY NumReservas DESC
+            LIMIT 1
+            """, (anyo,))
             return cursor.fetchall()
 
-    def eliminar_servicios(self) -> None:
+    def listar_Alojamientos(self, ciudad: str):
         with self._conexion.cursor() as cursor:
-            cursor.execute("""
-            DELETE FROM Servicios WHERE 
-            Servicios.id IN 
-            (SELECT Servicios.id 
-            FROM Servicios LEFT JOIN Contratado ON Servicios.id = Contratado.idServicio
-             WHERE Contratado.idServicio IS NULL);
-            """)
+            cursor.execute(f"""
+            SELECT IdAlojamiento, Propietario FROM Alojamientos WHERE Alojamientos.Ciudad = %s
+            """, (ciudad,))
+            alojamientos = cursor.fetchall()
 
-        self._conexion.commit()
+        if len(alojamientos) > 0:
+            print(f"Número de Alojamientos de {ciudad}: {len(alojamientos)}")
+            print("---")
+            for alojamiento in alojamientos:
+                print(f"Alojamiento: {alojamiento[0]} Propietario: {alojamiento[1]}")
+                with self._conexion.cursor() as cursor:
+                    cursor.execute(f"""
+                    SELECT IdReserva, FechaEntrada, Precio FROM Reservas WHERE Reservas.IdAlojamiento = %s ORDER BY Reservas.FechaEntrada
+                    """, (alojamiento[0],))
+                    reservas = cursor.fetchall()
+                precio = 0
+                if len(reservas) > 0:
+                    for reserva in reservas:
+                        print(f"ID: {reserva[0]} FechaEntrada: {reserva[1]} Precio: {reserva[2]}")
+                        precio += reserva[2]
+                print("---")
+                print(f"Total reservas: {len(reservas)} Total Precio: {precio}")
+                print("---")
+        else:
+            print("No hay alojamientos en la ciudad")
+
+    def aplicar_descuento(self, propietario: str, fecha_inicio: datetime.date, fecha_fin: datetime.date, descuento: float):
+
+
 
     def _close_conexion(self):
         self._conexion.close()
@@ -212,10 +229,11 @@ class GestionHotel:
 
 if __name__ == "__main__":
     gestion = GestionHotel()
-    gestion._create_tables()
     # gestion.iniciar_bd()
-    print(gestion.misma_ciudad())
-    print(gestion.informacion_reservas())
-    print(gestion.reservas_no_formalizadas())
-    print(gestion.sin_reservas('2025-02-21'))
+    # print(gestion.misma_ciudad())
+    # print(gestion.informacion_reservas())
+    # print(gestion.reservas_no_formalizadas())
+    # print(gestion.sin_reservas(datetime.date(2025, 5, 21)))
+    # print(gestion.mas_reservas_anyo(2021))
+    gestion.listar_Alojamientos('Madrid')
     gestion._close_conexion()

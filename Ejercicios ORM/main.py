@@ -1,13 +1,19 @@
-from sqlalchemy import create_engine, text, select, update
+from itertools import count
+
+from flake8.defaults import NOQA_FILE
+from jmespath.ast import and_expression
+from numba.core.utils import order_by_target_specificity
+from requests import session
+from sqlalchemy import create_engine, text, select, update, func, and_
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
-from modelos import Base, Cliente, Contratado, Servicio, Departamento
+from modelos import Base, Alojamientos, Reservas, Formaliza, Participantes
 import datetime
 from typing import Optional, List, Tuple
 
 
-class GestionTelefonica:
+class GestionHotel:
 
     def __init__(self):
         self._engine = self._carga_engine()
@@ -24,141 +30,132 @@ class GestionTelefonica:
         engine = create_engine(conexion_str, echo=True)
         return engine
 
-    def consulta_prueba(self):
-        with Session(self._engine) as session:
-            result = session.execute(text("select 'Hello world!'"))
-            r = result.fetchall()
-            print(f"Returned value {r}")
-
     def crea_tablas(self):
         Base.metadata.drop_all(self._engine)
         Base.metadata.create_all(self._engine)
 
-    def inserta_cliente(self, dni: str, nombre: str, gasto: Optional[float]) -> None:
-        cliente = Cliente(DNI=dni, nombre=nombre, gasto=gasto)
+    def inserta_alojamiento(self, idAlojamiento: int, maxPersonas: Optional[int], propietario: str, ciudad: str) -> None:
+        alojamiento = Alojamientos(IdAlojamiento=idAlojamiento, MaxPersonas=maxPersonas, Propietario=propietario, Ciudad=ciudad)
         with Session(self._engine) as session:
-            session.add(cliente)
+            session.add(alojamiento)
             session.commit()
 
-    def devolver_clientes(self):
+    def inserta_reserva(self, idReserva: int, idAlojamiento: int, fechaEntrada: datetime.date, fechaSalida: datetime.date,
+                            precio: float) -> None:
+        reserva = Reservas(IdReserva=idReserva, IdAlojamiento=idAlojamiento, FechaEntrada=fechaEntrada,
+                                   FechaSalida=fechaSalida, Precio=precio)
         with Session(self._engine) as session:
-            clientes = session.scalars(select(Cliente))
-            tres_clientes = clientes.fetchmany(3)
-            print(tres_clientes)
-            # for cliente in clientes.fetchall():
-            # print(cliente)
-
-    def inserta_departamento(self, codigo: int, nombre: str, n_empleados: int, fecha_creacion: datetime.date) -> None:
-        departamento = Departamento(codigo=codigo, nombre=nombre,
-                                    n_empleados=n_empleados,
-                                    fecha_creacion=fecha_creacion)
-        with Session(self._engine) as session:
-            session.add(departamento)
+            session.add(reserva)
             session.commit()
 
-    def inserta_servicios(self, id_: int, nombre: str, tarifa: float, codigo_dpto: int) -> None:
-        servicio = Servicio(id=id_, nombre=nombre, tarifa=tarifa, departamento=codigo_dpto)
+    def inserta_formaliza(self, idReserva: int, dni: str) -> None:
+        formaliza = Formaliza(IdReserva=idReserva, DNI=dni)
         with Session(self._engine) as session:
-            session.add(servicio)
+            session.add(formaliza)
             session.commit()
 
-    def inserta_contratado(self, dni_cliente: str, id_servicio: int, fecha: datetime.date) -> None:
-        contratado = Contratado(DNICliente=dni_cliente, idServicio=id_servicio,
-                                fecha= fecha)
+    def inserta_participante(self, dni: str, nombre: str, apellido: str, ciudad: Optional[str],
+                             fechaNacimiento: Optional[datetime.date], telefono: Optional[int]) -> None:
+        participante = Participantes(DNI=dni, Nombre=nombre, Apellido=apellido, Ciudad=ciudad,
+                                     FechaNacimiento=fechaNacimiento, Telefono=telefono)
         with Session(self._engine) as session:
-            session.add(contratado)
+            session.add(participante)
             session.commit()
 
-    def incrementar_porcentaje_objetos(self, porcentaje: float, patron: str) -> None:
+    def misma_ciudad(self):
         with Session(self._engine) as session:
-            query_servicios = session.scalars(select(Servicio))
-            for servicio in query_servicios.fetchall():
-                if patron in servicio.nombre:
-                    servicio.tarifa = (1 + porcentaje) * servicio.tarifa
-                    session.add(servicio)
-
-            session.commit()
-
-    def servicios_por_cliente_consulta(self, apellido: str, fecha: datetime.date) -> List[Tuple[str, str]]:
-        """
-        Queremos implementar una función que liste el nombre de los clientes con un apellido dado
-        (**apellido**) y de los servicios que han contratado
-        a partir de una fecha concreta (**fecha**), ordenado primero
-        por nombre del cliente y después por el del servicio,
-        ambos ascendentemente.
-
-        """
-        """
-        SELECT
-        FROM 
-        WHERE
-        GROUP BY
-        HAVING 
-        ORDER BY
-        """
-        with Session(self._engine) as session:
-            patron = f"%{apellido}%"
-            statement = select(Cliente.nombre, Servicio.nombre) \
-                        .join_from(Cliente, Contratado, Cliente.DNI == Contratado.DNICliente) \
-                        .join(Servicio, Contratado.idServicio == Servicio.id) \
-                        .where(Cliente.nombre.like(patron)) \
-                        .where(Contratado.fecha > fecha) \
-                        .order_by(Cliente.nombre.desc(), Servicio.nombre.desc())
-            query = session.execute(statement)
+            statetment = select(Participantes.Nombre, Participantes.Apellido) \
+                         .join_from(Alojamientos, Reservas, Alojamientos.IdAlojamiento == Reservas.IdAlojamiento) \
+                         .join(Formaliza, Reservas.IdReserva == Formaliza.IdReserva) \
+                         .join(Participantes, Formaliza.DNI == Participantes.DNI) \
+                         .where(Participantes.Ciudad.isnot(None)) \
+                         .where(Participantes.Ciudad == Alojamientos.Ciudad) \
+                         .order_by(Participantes.Apellido.asc())
+            query = session.execute(statetment)
             for resultado in query.fetchall():
                 print(resultado)
 
-    def servicios_por_cliente_objetos(self, apellido: str, fecha: datetime.date) -> List[Tuple[str, str]]:
+    def informacion_reservas(self):
         with Session(self._engine) as session:
-            clientes_con_apellido = select(Cliente).where(Cliente.nombre.in_(apellido))
+            statetment = select(Participantes.Nombre, Participantes.Apellido,
+                                func.coalesce(func.count(Reservas.IdReserva), 0),
+                                func.coalesce(func.count(Alojamientos.Ciudad), 0),
+                                func.coalesce(func.sum(Reservas.Precio), 0)) \
+                         .outerjoin_from(Participantes, Formaliza, Participantes.DNI == Formaliza.DNI) \
+                         .outerjoin(Reservas, Formaliza.IdReserva == Reservas.IdReserva) \
+                         .outerjoin(Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
+                         .group_by(Participantes.DNI)
+            query = session.execute(statetment)
+            for resultado in query.fetchall():
+                print(resultado)
 
-    def incrementar_porcentaje_consulta(self, porcentaje: float, patron: str) -> None:
+    def reservas_no_formalizadas(self):
         with Session(self._engine) as session:
-            session.execute(update(Servicio) \
-                            .where(Servicio.nombre.like(patron)) \
-                            .values(tarifa=(1 + porcentaje) * Servicio.tarifa))
+            statetment = select(Reservas.IdReserva, Reservas.Precio) \
+                         .outerjoin_from(Reservas, Formaliza, Reservas.IdReserva == Formaliza.IdReserva) \
+                         .where(Formaliza.DNI.is_(None)) \
+                         .order_by(Reservas.Precio)
+            query = session.execute(statetment)
+            for resultado in query.fetchall():
+                print(resultado)
 
-    def contratos_cliente(self, dni: str):
+    def sin_reservas(self, fecha: datetime.date):
         with Session(self._engine) as session:
-            cliente = session.get(Cliente, dni)
-            contratos = cliente.contratos
+            statetment = select(Alojamientos.IdAlojamiento, func.coalesce(Alojamientos.MaxPersonas, 0), Alojamientos.Ciudad) \
+                         .outerjoin_from(Alojamientos, Reservas, and_(Alojamientos.IdAlojamiento == Reservas.IdAlojamiento,
+                                         Reservas.FechaEntrada <= fecha, Reservas.FechaSalida >= fecha)) \
+                         .where(Reservas.IdReserva.is_(None))
+            query = session.execute(statetment)
+            for resultado in query.fetchall():
+                print(resultado)
 
-            for contrato in contratos:
-                print(contrato.cliente.DNI)
-
+    def mas_reservas_anyo(self, anyo: int):
+        with Session(self._engine) as session:
+            statetment = select(Alojamientos.Ciudad, func.count()) \
+                         .join_from(Alojamientos, Reservas, and_(Alojamientos.IdAlojamiento == Reservas.IdAlojamiento)) \
+                         .where(func.extract('year', Reservas.FechaEntrada) == anyo) \
+                         .group_by(Alojamientos.Ciudad) \
+                         .order_by(func.count().desc()) \
+                         .limit(1)
+            query = session.execute(statetment)
+            for resultado in query.fetchall():
+                print(resultado)
 
 if __name__ == "__main__":
-    gestion_tabla = GestionTelefonica()
-    # gestion_telefonica.consulta_prueba()
-    # gestion_tabla.crea_tablas()
-    # gestion_tabla.inserta_cliente("12345678A", "Juan Pérez", 1200.50)
-    # gestion_tabla.inserta_cliente("87654321B", "María Gómez", 850.75)
-    # gestion_tabla.inserta_cliente("11223344C", "Carlos Gómez", None)
-    # gestion_tabla.inserta_cliente("44332211D", "Ana Fernández", 620.90)
-    # gestion_tabla.inserta_cliente("55554444E", "Luis Martínez", None)
-    # gestion_tabla.devolver_clientes()
-    #
-    # gestion_tabla.inserta_departamento(1, "Atención al Cliente", 25, datetime.date.fromisoformat("2015-06-10"))
-    # gestion_tabla.inserta_departamento(2, "Infraestructura", 15, datetime.date.fromisoformat("2012-09-20"))
-    # gestion_tabla.inserta_departamento(3, "Desarrollo de Servicios", 40, datetime.date.fromisoformat("2018-03-05"))
-    # gestion_tabla.inserta_departamento(4, "Recursos Humanos", 10, datetime.date.fromisoformat("2010-01-15"))  # Sin servicios asociados
-    #
-    # gestion_tabla.inserta_servicios(101, "Plan Básico Móvil", 19.99, 1)
-    # gestion_tabla.inserta_servicios(102, "Plan Fibra 600 Mbps", 34.99, 2)
-    # gestion_tabla.inserta_servicios(103, "Plan TV Premium", 15.00, 3)
-    # gestion_tabla.inserta_servicios(104, "Soporte Técnico 24/7", 9.99, 1)
-    # gestion_tabla.inserta_servicios(105, "Seguridad en la Nube", 25.50, 2)
-    # gestion_tabla.inserta_servicios(106, "IoT Empresarial", 45.00, 2)
-    #
-    # Contrataciones de servicios
-    # gestion_tabla.inserta_contratado("12345678A", 101, datetime.date.fromisoformat("2024-01-15"))
-    # gestion_tabla.inserta_contratado("87654321B", 103, datetime.date.fromisoformat("2024-02-01"))
-    # gestion_tabla.inserta_contratado("11223344C", 104, datetime.date.fromisoformat("2024-02-05"))
-    # gestion_tabla.inserta_contratado("44332211D", 102, datetime.date.fromisoformat("2024-01-25"))
-    # gestion_tabla.inserta_contratado("12345678A", 102, datetime.date.fromisoformat("2024-02-10"))
-    # gestion_tabla.inserta_contratado("55554444E", 105, datetime.date.fromisoformat("2024-03-01"))
-    #
-    # gestion_tabla.incrementar_porcentaje_consulta(0.1, 'Plan%')
-    # gestion_tabla.servicios_por_cliente_consulta('Gómez', datetime.date(2020, 1, 31))
-    gestion_tabla.contratos_cliente("12345678A")
+    gestion_tabla = GestionHotel()
+    gestion_tabla.crea_tablas()
+    gestion_tabla.inserta_alojamiento(1, 4, 'Pensiones Loli', 'Madrid')
+    gestion_tabla.inserta_alojamiento(2, None, 'Laura Gomez', 'Barcelona')
+    gestion_tabla.inserta_alojamiento(3, 2, 'Carlos Ruiz', 'Sevilla')
+    gestion_tabla.inserta_alojamiento(4, 8, 'Ana Lopez', 'Valencia')
+    gestion_tabla.inserta_alojamiento(5, 3, 'Maria Fernandez', 'Granada')
+    gestion_tabla.inserta_alojamiento(6, None, 'Juan Perez', 'Madrid')
 
+    gestion_tabla.inserta_reserva(100, 1, datetime.date(2025, 5, 20), datetime.date(2025, 5, 25), 900)
+    gestion_tabla.inserta_reserva(101, 1, datetime.date(2024, 1, 20), datetime.date(2024, 1, 25), 400)
+    gestion_tabla.inserta_reserva(102, 2, datetime.date(2023, 2, 1), datetime.date(2023, 2, 5), 500)
+    gestion_tabla.inserta_reserva(103, 3, datetime.date(2022, 3, 10), datetime.date(2022, 3, 12), 200)
+    gestion_tabla.inserta_reserva(104, 3, datetime.date(2021, 4, 15), datetime.date(2021, 4, 20), 800)
+    gestion_tabla.inserta_reserva(105, 4, datetime.date(2021, 5, 5), datetime.date(2021, 5, 10), 300)
+    gestion_tabla.inserta_reserva(106, 4, datetime.date(2023, 5, 10), datetime.date(2024, 1, 2), 100)
+
+    gestion_tabla.inserta_participante('12345678A', 'Luis', 'Martinez', 'Madrid', datetime.date(1985, 7, 14), 600123456)
+    gestion_tabla.inserta_participante('23456789B', 'Elena', 'Sanchez', None, None, None)
+    gestion_tabla.inserta_participante('34567890C', 'Miguel', 'García', 'Sevilla', None, 602345678)
+    gestion_tabla.inserta_participante('45678901D', 'Sofía', 'Lopez', None, datetime.date(1995, 1, 30), 603456789)
+    gestion_tabla.inserta_participante('56789012E', 'Pablo', 'Hernandez', 'Granada', datetime.date(2000, 9, 19), 604567890)
+    gestion_tabla.inserta_participante('11111111F', 'Juan Carlos', 'Redondo', None, datetime.date(2005, 1, 30), 612345678)
+
+    gestion_tabla.inserta_formaliza(101, '12345678A')
+    gestion_tabla.inserta_formaliza(101, '23456789B')
+    gestion_tabla.inserta_formaliza(102, '23456789B')
+    gestion_tabla.inserta_formaliza(103, '34567890C')
+    gestion_tabla.inserta_formaliza(104, '45678901D')
+    gestion_tabla.inserta_formaliza(105, '56789012E')
+    gestion_tabla.inserta_formaliza(105, '45678901D')
+
+    # gestion_tabla.misma_ciudad()
+    # gestion_tabla.informacion_reservas()
+    # gestion_tabla.reservas_no_formalizadas()
+    # gestion_tabla.sin_reservas(datetime.date(2025, 5, 21))
+    gestion_tabla.mas_reservas_anyo(2021)

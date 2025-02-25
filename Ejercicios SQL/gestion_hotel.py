@@ -220,7 +220,31 @@ class GestionHotel:
             print("No hay alojamientos en la ciudad")
 
     def aplicar_descuento(self, propietario: str, fecha_inicio: datetime.date, fecha_fin: datetime.date, descuento: float):
-
+        descuento_aplicado = None
+        with self._conexion.cursor() as cursor:
+            cursor.execute(f"""
+                SELECT IdReserva, Precio FROM Alojamientos JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento 
+                WHERE %s = Alojamientos.Propietario AND Reservas.FechaEntrada <= %s AND Reservas.FechaSalida >= %s
+            """, (propietario, fecha_fin, fecha_inicio))
+            reservas = cursor.fetchall()
+            if reservas:
+                cursor.execute(f"""
+                     UPDATE Reservas SET Precio = Precio - (Precio * %s/100) WHERE IdReserva IN 
+                     (SELECT IdReserva FROM Alojamientos JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento 
+                     WHERE %s = Alojamientos.Propietario AND Reservas.FechaEntrada <= %s AND Reservas.FechaSalida >= %s)
+                     """, (descuento, propietario, fecha_inicio, fecha_fin))
+                cursor.execute(f"""
+                    SELECT IdReserva, Precio FROM Alojamientos JOIN Reservas ON Alojamientos.IdAlojamiento = Reservas.IdAlojamiento 
+                    WHERE %s = Alojamientos.Propietario AND Reservas.FechaEntrada <= %s AND Reservas.FechaSalida >= %s
+                """, (propietario, fecha_fin, fecha_inicio))
+                descuento_aplicado = cursor.fetchall()
+        if descuento_aplicado is not None:
+            print(f"Descuento aplicado a la Reserva: {descuento_aplicado[0][0]} en {propietario} con descuento de {descuento} "
+                  f"entre {fecha_inicio} y {fecha_fin}.")
+            print(f"Precio ahora: {descuento_aplicado[0][1]}")
+            # self._conexion.commit()
+        else:
+            print("No hay descuentos por estas fechas.")
 
 
     def _close_conexion(self):
@@ -236,4 +260,6 @@ if __name__ == "__main__":
     # print(gestion.sin_reservas(datetime.date(2025, 5, 21)))
     # print(gestion.mas_reservas_anyo(2021))
     gestion.listar_Alojamientos('Madrid')
+    gestion.aplicar_descuento("Pensiones Loli", datetime.date(2025, 5, 1), datetime.date(2025, 5, 31), 12.5)
+    gestion.aplicar_descuento("Pensiones Loli", datetime.date(2025, 1, 1), datetime.date(2025, 1, 31), 12.5)
     gestion._close_conexion()

@@ -121,6 +121,72 @@ class GestionHotel:
             for resultado in query.fetchall():
                 print(resultado)
 
+    def listar_alojameintos(self, ciudad: str):
+        with Session(self._engine) as session:
+            statetment = select(Alojamientos.IdAlojamiento, Alojamientos.Propietario) \
+                         .select_from(Alojamientos) \
+                         .where(Alojamientos.Ciudad == ciudad)
+            query = session.execute(statetment)
+            alojamientos = query.fetchall()
+
+        if len(alojamientos) > 0:
+            print(f"Número de Alojamientos de {ciudad}: {len(alojamientos)}\n---")
+            for alojamiento in alojamientos:
+                print(f"Alojamiento: {alojamiento[0]} Propietario: {alojamiento[1]}")
+                with Session(self._engine) as session:
+                    statetment = select(Reservas.IdReserva, Reservas.FechaEntrada, Reservas.Precio) \
+                        .select_from(Reservas) \
+                        .where(Reservas.IdAlojamiento == alojamiento[0]) \
+                        .order_by(Reservas.FechaEntrada)
+                    query = session.execute(statetment)
+                    reservas = query.fetchall()
+                precio = 0
+                if len(reservas) > 0:
+                    for reserva in reservas:
+                        print(f"ID: {reserva[0]} FechaEntrada: {reserva[1]} Precio: {reserva[2]}")
+                        precio += reserva[2]
+                print("---")
+                print(f"Total reservas: {len(reservas)} Total Precio: {precio}\n---")
+        else:
+            print("No hay alojamientos en la ciudad")
+
+    def aplicar_descuento(self, propietario: str, fecha_inicio: datetime.date, fecha_fin: datetime.date, descuento: float):
+        descuento_aplicado = None
+        with (Session(self._engine) as session):
+            statetment = select(Reservas.IdReserva, Reservas.Precio) \
+                         .join_from(Reservas, Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
+                         .where(Alojamientos.Propietario == propietario) \
+                         .where(Reservas.FechaEntrada <= fecha_fin) \
+                         .where(Reservas.FechaSalida >= fecha_inicio)
+            query = session.execute(statetment)
+            reservas = query.fetchall()
+            if reservas:
+                with Session(self._engine) as session:
+                    subquery = select(Reservas.IdReserva) \
+                               .join_from(Reservas, Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
+                               .where(Alojamientos.Propietario == propietario) \
+                               .where(Alojamientos.Propietario == propietario) \
+                               .where(Reservas.FechaEntrada <= fecha_fin) \
+                               .where(Reservas.FechaSalida >= fecha_inicio)
+                    statetment = update(Reservas) \
+                                 .where(Reservas.IdReserva.in_(subquery)) \
+                                 .values(Precio= Reservas.Precio - (Reservas.Precio * descuento/100))
+                    query = session.execute(statetment)
+                    statetment = select(Reservas.IdReserva, Reservas.Precio) \
+                        .join_from(Reservas, Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
+                        .where(Alojamientos.Propietario == propietario) \
+                        .where(Reservas.FechaEntrada <= fecha_fin) \
+                        .where(Reservas.FechaSalida >= fecha_inicio)
+                    query = session.execute(statetment)
+                    descuento_aplicado = query.fetchall()
+                    # session.commit()
+            if descuento_aplicado is not None:
+                print(f"Descuento aplicado a la Reserva: {descuento_aplicado[0][0]} en {propietario} con descuento de {descuento} "
+                      f"entre {fecha_inicio} y {fecha_fin}.\nPrecio ahora: {descuento_aplicado[0][1]}")
+            else:
+                print("No hay descuentos por estas fecha.")
+
+
 if __name__ == "__main__":
     gestion_tabla = GestionHotel()
     gestion_tabla.crea_tablas()
@@ -158,4 +224,9 @@ if __name__ == "__main__":
     # gestion_tabla.informacion_reservas()
     # gestion_tabla.reservas_no_formalizadas()
     # gestion_tabla.sin_reservas(datetime.date(2025, 5, 21))
-    gestion_tabla.mas_reservas_anyo(2021)
+    # gestion_tabla.mas_reservas_anyo(2021)
+    # gestion_tabla.listar_alojameintos('Madrid')
+    gestion_tabla.aplicar_descuento("Pensiones Loli", datetime.date(2025, 5, 1),
+                                     datetime.date(2025, 5, 31), 12.5)
+    gestion_tabla.aplicar_descuento("Pensiones Loli", datetime.date(2025, 1, 1),
+                                    datetime.date(2025, 1, 31), 12.5)

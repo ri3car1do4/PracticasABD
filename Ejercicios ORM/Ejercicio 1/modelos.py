@@ -26,6 +26,8 @@ class Alojamientos(Base):
     Propietario: Mapped[str] = mapped_column(String(30), nullable=False)
     Ciudad: Mapped[str] = mapped_column(String(20), nullable=False)
 
+    Reservas: Mapped[List["Reservas"]] = relationship(back_populates="alojamiento")
+
     def __repr__(self):
         return f"Alojamientos(IdAlojamiento={self.IdAlojamiento}, MaxPersonas= {self.MaxPersonas}, " \
                f"Propietario={self.Propietario}, Ciudad={self.Ciudad})"
@@ -33,7 +35,7 @@ class Alojamientos(Base):
 class Reservas(Base):
     """
     * Reservas(<ins>IdReserva</ins>, IdAlojamiento, FechaEntrada, FechaSalida, Precio)
-    - Reserva.IdAlojamiento -> Alojamiento.IdAlojamiento
+        - Reserva.IdAlojamiento -> Alojamiento.IdAlojamiento
     """
     __tablename__ = "Reservas"
 
@@ -42,6 +44,9 @@ class Reservas(Base):
     FechaEntrada: Mapped[date] = mapped_column(nullable=False)
     FechaSalida: Mapped[date] = mapped_column(nullable=False)
     Precio: Mapped[float] = mapped_column(nullable=False)
+
+    alojamiento: Mapped["Alojamientos"] = relationship(back_populates="Reservas")
+    participantes: Mapped[List["Formaliza"]] = relationship(back_populates="reserva")
 
     def __repr__(self):
         return f"Reservas(IdReserva={self.IdReserva}, IdAlojamiento={self.IdAlojamiento}, FechaEntrada= {self.FechaEntrada}, " \
@@ -60,6 +65,8 @@ class Participantes(Base):
     FechaNacimiento: Mapped[date] = mapped_column(nullable=True)
     Telefono: Mapped[int] = mapped_column(nullable=True)
 
+    reservas: Mapped[List["Formaliza"]] = relationship(back_populates="participante")
+
     def __repr__(self):
         return f"Participantes(DNI={self.DNI}, Nombre={self.Nombre}, Apellid={self.Apellido}), Ciudad={self.Ciudad}, " \
                f"FechaNacimiento={self.FechaNacimiento}, Telefono={self.Telefono})"
@@ -73,6 +80,9 @@ class Formaliza(Base):
     __tablename__= "Formaliza"
     IdReserva: Mapped[int] = mapped_column(ForeignKey(Reservas.IdReserva), primary_key=True, nullable=False)
     DNI: Mapped[str] = mapped_column(String(9), ForeignKey(Participantes.DNI), primary_key=True, nullable=False)
+
+    participante: Mapped["Participantes"] = relationship(back_populates="reservas")
+    reserva: Mapped["Reservas"] = relationship(back_populates="participantes")
 
     def __repr__(self):
         return f"Formaliza(IdReserva={self.IdReserva}, DNI={self.DNI})"

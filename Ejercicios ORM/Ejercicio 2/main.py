@@ -8,12 +8,12 @@ from sqlalchemy import create_engine, text, select, update, func, and_
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
-from modelos import Base, Alojamientos, Reservas, Formaliza, Participantes
+from modelos import Base, Usuario, Experto, Ocasional, Mensaje, Hilo, Puntuacion
 import datetime
 from typing import Optional, List, Tuple
 
 
-class GestionHotel:
+class GestionForo:
 
     def __init__(self):
         self._engine = self._carga_engine()
@@ -34,199 +34,109 @@ class GestionHotel:
         Base.metadata.drop_all(self._engine)
         Base.metadata.create_all(self._engine)
 
-    def inserta_alojamiento(self, idAlojamiento: int, maxPersonas: Optional[int], propietario: str, ciudad: str) -> None:
-        alojamiento = Alojamientos(IdAlojamiento=idAlojamiento, MaxPersonas=maxPersonas, Propietario=propietario, Ciudad=ciudad)
+    def inserta_usuario(self, param, param1, param2):
+        usuario = Usuario(id=param, nombre=param1, email=param2)
         with Session(self._engine) as session:
-            session.add(alojamiento)
+            session.add(usuario)
             session.commit()
 
-    def inserta_reserva(self, idReserva: int, idAlojamiento: int, fechaEntrada: datetime.date, fechaSalida: datetime.date,
-                            precio: float) -> None:
-        reserva = Reservas(IdReserva=idReserva, IdAlojamiento=idAlojamiento, FechaEntrada=fechaEntrada,
-                                   FechaSalida=fechaSalida, Precio=precio)
+    def inserta_experto(self, param, param1):
+        experto = Experto(id=param, pagina=param1)
         with Session(self._engine) as session:
-            session.add(reserva)
+            session.add(experto)
             session.commit()
 
-    def inserta_formaliza(self, idReserva: int, dni: str) -> None:
-        formaliza = Formaliza(IdReserva=idReserva, DNI=dni)
+    def inserta_ocasional(self, param, param1):
+        ocasional = Ocasional(id=param, nAccesos=param1)
         with Session(self._engine) as session:
-            session.add(formaliza)
+            session.add(ocasional)
             session.commit()
 
-    def inserta_participante(self, dni: str, nombre: str, apellido: str, ciudad: Optional[str],
-                             fechaNacimiento: Optional[datetime.date], telefono: Optional[int]) -> None:
-        participante = Participantes(DNI=dni, Nombre=nombre, Apellido=apellido, Ciudad=ciudad,
-                                     FechaNacimiento=fechaNacimiento, Telefono=telefono)
+    def inserta_hilo(self, param, param1, param2):
+        hilo = Hilo(id=param, asunto=param1, idModerador=param2)
         with Session(self._engine) as session:
-            session.add(participante)
+            session.add(hilo)
             session.commit()
 
-    def misma_ciudad(self):
+    def inserta_mensaje(self, param, param1, param2, param3, param4):
+        mensaje = Mensaje(idMensaje=param, idHilo=param1, Texto=param2, Fecha=param3, idUsuario=param4)
         with Session(self._engine) as session:
-            statetment = select(Participantes.Nombre, Participantes.Apellido) \
-                         .join_from(Alojamientos, Reservas, Alojamientos.IdAlojamiento == Reservas.IdAlojamiento) \
-                         .join(Formaliza, Reservas.IdReserva == Formaliza.IdReserva) \
-                         .join(Participantes, Formaliza.DNI == Participantes.DNI) \
-                         .where(Participantes.Ciudad.isnot(None)) \
-                         .where(Participantes.Ciudad == Alojamientos.Ciudad) \
-                         .order_by(Participantes.Apellido.asc())
-            query = session.execute(statetment)
-            for resultado in query.fetchall():
-                print(resultado)
+            session.add(mensaje)
+            session.commit()
 
-    def informacion_reservas(self):
+    def inserta_puntuacion(self, param, param1, param2, param3):
+        puntuacion = Puntuacion(id_usuario=param, idMensaje=param1, idHilo=param2, puntuacion=param3)
         with Session(self._engine) as session:
-            statetment = select(Participantes.Nombre, Participantes.Apellido,
-                                func.coalesce(func.count(Reservas.IdReserva), 0),
-                                func.coalesce(func.count(Alojamientos.Ciudad), 0),
-                                func.coalesce(func.sum(Reservas.Precio), 0)) \
-                         .outerjoin_from(Participantes, Formaliza, Participantes.DNI == Formaliza.DNI) \
-                         .outerjoin(Reservas, Formaliza.IdReserva == Reservas.IdReserva) \
-                         .outerjoin(Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
-                         .group_by(Participantes.DNI)
-            query = session.execute(statetment)
-            for resultado in query.fetchall():
-                print(resultado)
+            session.add(puntuacion)
+            session.commit()
 
-    def reservas_no_formalizadas(self):
-        with Session(self._engine) as session:
-            statetment = select(Reservas.IdReserva, Reservas.Precio) \
-                         .outerjoin_from(Reservas, Formaliza, Reservas.IdReserva == Formaliza.IdReserva) \
-                         .where(Formaliza.DNI.is_(None)) \
-                         .order_by(Reservas.Precio)
-            query = session.execute(statetment)
-            for resultado in query.fetchall():
-                print(resultado)
+    def mensajes_moderados(self) -> List[Tuple[Experto, List[Hilo]]]:
+        """
+        Devuelve la lista de moderadores y los mensajes de los hilos que moderan
+        """
+        pass
 
-    def sin_reservas(self, fecha: datetime.date):
-        with Session(self._engine) as session:
-            statetment = select(Alojamientos.IdAlojamiento, func.coalesce(Alojamientos.MaxPersonas, 0), Alojamientos.Ciudad) \
-                         .outerjoin_from(Alojamientos, Reservas, and_(Alojamientos.IdAlojamiento == Reservas.IdAlojamiento,
-                                         Reservas.FechaEntrada <= fecha, Reservas.FechaSalida >= fecha)) \
-                         .where(Reservas.IdReserva.is_(None))
-            query = session.execute(statetment)
-            for resultado in query.fetchall():
-                print(resultado)
+    def puntuaciones_mayores(self, id_usuario: int, limit: int) -> List[Mensaje]:
+        """
+        Devuelve la lista de mensajes valorados por el usuario ocasional con id "id_usuario"
+        que han recibido mayor puntuacion, ordenados por su puntuación de forma decreciente.
+        Esta lista debe contener exactamente "limit" elementos. Si hay menos de "limit" mensajes
+        valores, debe devolver una lista con todos los mensajes ordenados.
+        """
+        pass
 
-    def mas_reservas_anyo(self, anyo: int):
-        with Session(self._engine) as session:
-            statetment = select(Alojamientos.Ciudad, func.count()) \
-                         .join_from(Alojamientos, Reservas, and_(Alojamientos.IdAlojamiento == Reservas.IdAlojamiento)) \
-                         .where(func.extract('year', Reservas.FechaEntrada) == anyo) \
-                         .group_by(Alojamientos.Ciudad) \
-                         .order_by(func.count().desc()) \
-                         .limit(1)
-            query = session.execute(statetment)
-            for resultado in query.fetchall():
-                print(resultado)
+    def elimina_puntuaciones_hilo(self, id_hilo: int) -> None:
+        """
+        Elimina todas las puntuaciones asociadas a mensajes de un hilo.
+        """
+        pass
 
-    def listar_alojameintos(self, ciudad: str):
-        with Session(self._engine) as session:
-            statetment = select(Alojamientos.IdAlojamiento, Alojamientos.Propietario) \
-                         .select_from(Alojamientos) \
-                         .where(Alojamientos.Ciudad == ciudad)
-            query = session.execute(statetment)
-            alojamientos = query.fetchall()
+    def cambiar_moderador(self, id_hilo: int, nuevo_moderador_id: int) -> None:
+        """
+        Cambia el moderador del hilo con id "id_hilo" a "nuevo_moderador_id".
+        """
+        pass
 
-        if len(alojamientos) > 0:
-            print(f"Número de Alojamientos de {ciudad}: {len(alojamientos)}\n---")
-            for alojamiento in alojamientos:
-                print(f"Alojamiento: {alojamiento[0]} Propietario: {alojamiento[1]}")
-                with Session(self._engine) as session:
-                    statetment = select(Reservas.IdReserva, Reservas.FechaEntrada, Reservas.Precio) \
-                        .select_from(Reservas) \
-                        .where(Reservas.IdAlojamiento == alojamiento[0]) \
-                        .order_by(Reservas.FechaEntrada)
-                    query = session.execute(statetment)
-                    reservas = query.fetchall()
-                precio = 0
-                if len(reservas) > 0:
-                    for reserva in reservas:
-                        print(f"ID: {reserva[0]} FechaEntrada: {reserva[1]} Precio: {reserva[2]}")
-                        precio += reserva[2]
-                print("---")
-                print(f"Total reservas: {len(reservas)} Total Precio: {precio}\n---")
-        else:
-            print("No hay alojamientos en la ciudad")
-
-    def aplicar_descuento(self, propietario: str, fecha_inicio: datetime.date, fecha_fin: datetime.date, descuento: float):
-        descuento_aplicado = None
-        with (Session(self._engine) as session):
-            statetment = select(Reservas.IdReserva, Reservas.Precio) \
-                         .join_from(Reservas, Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
-                         .where(Alojamientos.Propietario == propietario) \
-                         .where(Reservas.FechaEntrada <= fecha_fin) \
-                         .where(Reservas.FechaSalida >= fecha_inicio)
-            query = session.execute(statetment)
-            reservas = query.fetchall()
-            if reservas:
-                with Session(self._engine) as session:
-                    subquery = select(Reservas.IdReserva) \
-                               .join_from(Reservas, Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
-                               .where(Alojamientos.Propietario == propietario) \
-                               .where(Alojamientos.Propietario == propietario) \
-                               .where(Reservas.FechaEntrada <= fecha_fin) \
-                               .where(Reservas.FechaSalida >= fecha_inicio)
-                    statetment = update(Reservas) \
-                                 .where(Reservas.IdReserva.in_(subquery)) \
-                                 .values(Precio= Reservas.Precio - (Reservas.Precio * descuento/100))
-                    query = session.execute(statetment)
-                    statetment = select(Reservas.IdReserva, Reservas.Precio) \
-                        .join_from(Reservas, Alojamientos, Reservas.IdAlojamiento == Alojamientos.IdAlojamiento) \
-                        .where(Alojamientos.Propietario == propietario) \
-                        .where(Reservas.FechaEntrada <= fecha_fin) \
-                        .where(Reservas.FechaSalida >= fecha_inicio)
-                    query = session.execute(statetment)
-                    descuento_aplicado = query.fetchall()
-                    # session.commit()
-            if descuento_aplicado is not None:
-                print(f"Descuento aplicado a la Reserva: {descuento_aplicado[0][0]} en {propietario} con descuento de {descuento} "
-                      f"entre {fecha_inicio} y {fecha_fin}.\nPrecio ahora: {descuento_aplicado[0][1]}")
-            else:
-                print("No hay descuentos por estas fecha.")
+    def expertos_automoderados(self) -> List[Experto]:
+        """
+        Devueve la lista de expertos que moderan algún hilo en el que
+        han enviado al menos un mensaje.
+        """
+        pass
 
 
 if __name__ == "__main__":
-    gestion_tabla = GestionHotel()
-    gestion_tabla.crea_tablas()
-    gestion_tabla.inserta_alojamiento(1, 4, 'Pensiones Loli', 'Madrid')
-    gestion_tabla.inserta_alojamiento(2, None, 'Laura Gomez', 'Barcelona')
-    gestion_tabla.inserta_alojamiento(3, 2, 'Carlos Ruiz', 'Sevilla')
-    gestion_tabla.inserta_alojamiento(4, 8, 'Ana Lopez', 'Valencia')
-    gestion_tabla.inserta_alojamiento(5, 3, 'Maria Fernandez', 'Granada')
-    gestion_tabla.inserta_alojamiento(6, None, 'Juan Perez', 'Madrid')
+    gestion_foros = GestionForo()
+    gestion_foros.crea_tablas()
 
-    gestion_tabla.inserta_reserva(100, 1, datetime.date(2025, 5, 20), datetime.date(2025, 5, 25), 900)
-    gestion_tabla.inserta_reserva(101, 1, datetime.date(2024, 1, 20), datetime.date(2024, 1, 25), 400)
-    gestion_tabla.inserta_reserva(102, 2, datetime.date(2023, 2, 1), datetime.date(2023, 2, 5), 500)
-    gestion_tabla.inserta_reserva(103, 3, datetime.date(2022, 3, 10), datetime.date(2022, 3, 12), 200)
-    gestion_tabla.inserta_reserva(104, 3, datetime.date(2021, 4, 15), datetime.date(2021, 4, 20), 800)
-    gestion_tabla.inserta_reserva(105, 4, datetime.date(2021, 5, 5), datetime.date(2021, 5, 10), 300)
-    gestion_tabla.inserta_reserva(106, 4, datetime.date(2023, 5, 10), datetime.date(2024, 1, 2), 100)
+    gestion_foros.inserta_usuario(1, 'Carlos Pérez', 'carlos.perez@email.com');
+    gestion_foros.inserta_usuario(2, 'Laura Gómez', 'laura.gomez@email.com');
+    gestion_foros.inserta_usuario(3, 'Ana Martínez', 'ana.martinez@email.com');
+    gestion_foros.inserta_usuario(4, 'Javier Ruiz', 'javier.ruiz@email.com');
 
-    gestion_tabla.inserta_participante('12345678A', 'Luis', 'Martinez', 'Madrid', datetime.date(1985, 7, 14), 600123456)
-    gestion_tabla.inserta_participante('23456789B', 'Elena', 'Sanchez', None, None, None)
-    gestion_tabla.inserta_participante('34567890C', 'Miguel', 'García', 'Sevilla', None, 602345678)
-    gestion_tabla.inserta_participante('45678901D', 'Sofía', 'Lopez', None, datetime.date(1995, 1, 30), 603456789)
-    gestion_tabla.inserta_participante('56789012E', 'Pablo', 'Hernandez', 'Granada', datetime.date(2000, 9, 19), 604567890)
-    gestion_tabla.inserta_participante('11111111F', 'Juan Carlos', 'Redondo', None, datetime.date(2005, 1, 30), 612345678)
+    gestion_foros.inserta_experto(1, 'www.carlosperez.com');
+    gestion_foros.inserta_experto(2, 'www.lauragomez.com');
 
-    gestion_tabla.inserta_formaliza(101, '12345678A')
-    gestion_tabla.inserta_formaliza(101, '23456789B')
-    gestion_tabla.inserta_formaliza(102, '23456789B')
-    gestion_tabla.inserta_formaliza(103, '34567890C')
-    gestion_tabla.inserta_formaliza(104, '45678901D')
-    gestion_tabla.inserta_formaliza(105, '56789012E')
-    gestion_tabla.inserta_formaliza(105, '45678901D')
+    gestion_foros.inserta_ocasional(3, 15);
+    gestion_foros.inserta_ocasional(4, 8);
 
-    # gestion_tabla.misma_ciudad()
-    # gestion_tabla.informacion_reservas()
-    # gestion_tabla.reservas_no_formalizadas()
-    # gestion_tabla.sin_reservas(datetime.date(2025, 5, 21))
-    # gestion_tabla.mas_reservas_anyo(2021)
-    # gestion_tabla.listar_alojameintos('Madrid')
-    gestion_tabla.aplicar_descuento("Pensiones Loli", datetime.date(2025, 5, 1),
-                                     datetime.date(2025, 5, 31), 12.5)
-    gestion_tabla.aplicar_descuento("Pensiones Loli", datetime.date(2025, 1, 1),
-                                    datetime.date(2025, 1, 31), 12.5)
+    gestion_foros.inserta_hilo(101, '¿Cómo mejorar el rendimiento en SQL?', 1);
+    gestion_foros.inserta_hilo(102, 'Diferencias entre SQL y NoSQL', 2);
+
+    gestion_foros.inserta_mensaje(1001, 101,
+                                  'Para mejorar el rendimiento en SQL, usa índices y optimiza las consultas.',
+                                  '2025-02-01', 1);
+    gestion_foros.inserta_mensaje(1002, 101, 'También puedes evitar SELECT * y normalizar tus tablas.', '2025-02-02',
+                                  4);
+    gestion_foros.inserta_mensaje(1003, 101, 'Este mensaje es malisimo.', '2025-01-02', 4);
+    gestion_foros.inserta_mensaje(1004, 101, 'Te voy a banear', '2025-02-20', 1);
+    gestion_foros.inserta_mensaje(1001, 102, 'SQL es relacional, mientras que NoSQL es más flexible en estructura.',
+                                  '2025-02-03', 3);
+    gestion_foros.inserta_mensaje(1002, 102, 'Depende de la aplicación, SQL es mejor para datos estructurados.',
+                                  '2025-02-04', 4);
+
+    gestion_foros.inserta_puntuacion(1, 1001, 101, 5);
+    gestion_foros.inserta_puntuacion(1, 1002, 101, 7);
+    gestion_foros.inserta_puntuacion(2, 1002, 101, 8);
+    gestion_foros.inserta_puntuacion(3, 1002, 102, 5);
+    gestion_foros.inserta_puntuacion(4, 1001, 102, 3);

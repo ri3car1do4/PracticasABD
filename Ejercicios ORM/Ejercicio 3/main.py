@@ -4,14 +4,19 @@ from itertools import count
 from flake8.defaults import NOQA_FILE
 from jmespath.ast import and_expression
 from numba.core.utils import order_by_target_specificity
+from pywin.framework.mdi_pychecker import ID_ADDCOMMENT
 from requests import session
 from sqlalchemy import create_engine, text, select, update, func, and_, desc, delete
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
 from modelos import Base, Alojamiento, Persona, Agencia, Hotel, Habitacion, Apartamento, Reserva, Huesped, Acuerda, Oferta
-import datetime
+from datetime import date
 from typing import Optional, List, Tuple
+
+
+class ApartamentoNotFound(Exception):
+    pass
 
 
 class GestionAlojamientos:
@@ -150,20 +155,43 @@ class GestionAlojamientos:
             statetment = select(Persona.NIF) \
                          .join(Reserva, Persona.NIF == Reserva.NIF_persona) \
                          .where(Reserva.ID_alojamiento == id_alojamiento) \
-                         .where(Reserva.entrada >= datetime.date.today())
+                         .where(Reserva.entrada >= date.today())
             personas = session.execute(statetment).scalars().all()
-            # Eliminar registros dependientes manualmente antes de eliminar el Alojamiento...
+            # Eliminar registros dependientes manualmente antes de eliminar el Alojamiento
+            session.execute(delete(Oferta).where(Oferta.ID_hotel == id_alojamiento))
+            session.execute(delete(Acuerda).where(Acuerda.ID_hotel == id_alojamiento))
+            session.execute(delete(Acuerda).where(Acuerda.ID_apartamento == id_alojamiento))
+            session.execute(delete(Huesped).where(Huesped.codigo.in_(select(Reserva.codigo).where(Reserva.ID_alojamiento == id_alojamiento))))
+            session.execute(delete(Reserva).where(Reserva.ID_alojamiento == id_alojamiento))
+            session.execute(delete(Habitacion).where(Habitacion.ID_hotel == id_alojamiento))
+            session.execute(delete(Hotel).where(Hotel.ID == id_alojamiento))
+            session.execute(delete(Apartamento).where(Apartamento.ID == id_alojamiento))
+
             session.execute(delete(Alojamiento).where(Alojamiento.ID == id_alojamiento))
+            # print(session.execute(select(Alojamiento)).scalars().all())
             # session.commit()
 
         return personas
 
-    def mover_reservas(self, codigo_reserva: List) -> None:
+    def mover_reservas(self, codigo_reserva: int) -> None:
         """
         Mueve la reserva especificada (de un hotel) a un apartamento que tenga una habitación disponible en las fechas especificadas. El apartamento debe tener un convenio previo con el hotel. Además, el apartamento debe permitir un número de huespedes superior al número de huespedes asociado a la reserva.  En caso de no haber ningún apartamento disponible con las características requeridas, lanza la excepción propia 'ApartamentoNotFound'.
         """
-        pass
-
+        with Session(self._engine) as session:
+            statetment = select(Reserva.ID_alojamiento) \
+                         .where(and_(
+                                Reserva.codigo == codigo_reserva, # Existe reserva con ese código
+                                Reserva.ID_alojamiento.in_(select(Acuerda.ID_hotel)), # El apartamento tiene un convenio con el hotel
+                                select(Apartamento.n_huespedes).where(Apartamento.ID.in_(select(Acuerda.ID_apartamento).where(Acuerda.ID_hotel == Reserva.ID_alojamiento))) \
+                                > select(Habitacion.n_huespedes).where(Habitacion.ID_hotel == Reserva.ID_alojamiento) # El apartamento permite un número de huespedes superior al número de huespedes asociado a la reserva.
+                                ))
+            reserva = session.execute(statetment).fetchall()
+            if reserva:
+                id_apartamento = session.execute(select(Acuerda.ID_apartamento).where(Acuerda.ID_hotel == reserva)).fetchall()
+                session.execute(update(Reserva).where(Reserva.codigo == codigo_reserva).values(ID_alojamiento= id_apartamento))
+                # session.commit()
+            else:
+                raise ApartamentoNotFound
 
 if __name__ == "__main__":
     gestion_alojamientos = GestionAlojamientos()
@@ -209,4 +237,5 @@ if __name__ == "__main__":
     # print(gestion_alojamientos.hoteles_agencia_localidad('Barcelona'))
     # print(gestion_alojamientos.restaurantes_codigo_postal('28001'))
     # print(gestion_alojamientos.grandes_tenedores())
-    print(gestion_alojamientos.elimina_alojamiento_ilegal(1))
+    # print(gestion_alojamientos.elimina_alojamiento_ilegal(1))
+    gestion_alojamientos.mover_reservas(1)

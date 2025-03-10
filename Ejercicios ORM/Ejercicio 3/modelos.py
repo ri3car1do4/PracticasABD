@@ -87,7 +87,8 @@ class Hotel(Base):
     """
     __tablename__ = "Hotel"
 
-    ID: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    # ID: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    ID: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID), primary_key=True, nullable=False)
     restaurante: Mapped[str] = mapped_column(String(20), nullable=False)
     NIF_agencia: Mapped[str] = mapped_column(String(9), ForeignKey(Agencia.NIF), nullable=False)
 
@@ -104,7 +105,8 @@ class Habitacion(Base):
         - Habitacion.ID_hotel -> Hotel.ID
     """
     __tablename__= "Habitacion"
-    ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    # ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID), primary_key=True, nullable=False)
     numero: Mapped[int] = mapped_column(primary_key=True, nullable=False)
     n_huespedes: Mapped[int] = mapped_column(nullable=False)
     tipo: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -122,10 +124,10 @@ class Apartamento(Base):
         - Apartamento.NIF -> Persona.NIF
     """
     __tablename__= "Apartamento"
-    ID: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    # ID: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    ID: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID), primary_key=True, nullable=False)
     n_huespedes: Mapped[int] = mapped_column(nullable=False)
     NIF: Mapped[str] = mapped_column(String(9), ForeignKey(Persona.NIF, ondelete="CASCADE"), nullable=False)
-
     dueño: Mapped["Persona"] = relationship(back_populates="apartamentos")
     acuerdos: Mapped[List["Acuerda"]] = relationship(back_populates="apartamento")
 
@@ -140,7 +142,8 @@ class Reserva(Base):
     """
     __tablename__ = "Reserva"
     codigo: Mapped[int] = mapped_column(primary_key=True, nullable=False)
-    ID_alojamiento: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID, ondelete="CASCADE"), nullable=False)
+    # ID_alojamiento: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID, ondelete="CASCADE"), nullable=False)
+    ID_alojamiento: Mapped[int] = mapped_column(ForeignKey(Alojamiento.ID), nullable=False)
     NIF_persona: Mapped[str] = mapped_column(String(9), ForeignKey(Persona.NIF, ondelete="CASCADE"), nullable=False)
     precio: Mapped[float] = mapped_column(nullable=False)
     entrada: Mapped[date] = mapped_column(nullable=False)
@@ -161,7 +164,8 @@ class Huesped(Base):
     """
     __tablename__ = "Huesped"
     NIF: Mapped[str] = mapped_column(String(9), ForeignKey(Persona.NIF, ondelete="CASCADE"), primary_key=True, nullable=False)
-    codigo: Mapped[int] = mapped_column(ForeignKey(Reserva.codigo, ondelete="CASCADE"), primary_key=True, nullable=False)
+    # codigo: Mapped[int] = mapped_column(ForeignKey(Reserva.codigo, ondelete="CASCADE"), primary_key=True, nullable=False)
+    codigo: Mapped[int] = mapped_column(ForeignKey(Reserva.codigo), primary_key=True, nullable=False)
 
     persona: Mapped["Persona"] = relationship(back_populates="huespedes")
     reserva: Mapped["Reserva"] = relationship(back_populates="huespedes")
@@ -176,8 +180,10 @@ class Acuerda(Base):
         - Acuerda.ID_apartamento -> Apartamento.ID
     """
     __tablename__ = "Acuerda"
-    ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
-    ID_apartamento: Mapped[int] = mapped_column(ForeignKey(Apartamento.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    # ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID), primary_key=True, nullable=False)
+    # ID_apartamento: Mapped[int] = mapped_column(ForeignKey(Apartamento.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    ID_apartamento: Mapped[int] = mapped_column(ForeignKey(Apartamento.ID), primary_key=True, nullable=False)
 
     hotel: Mapped["Hotel"] = relationship(back_populates="acuerdos")
     apartamento: Mapped["Apartamento"] = relationship(back_populates="acuerdos")
@@ -193,7 +199,8 @@ class Oferta(Base):
     """
     __tablename__ = "Oferta"
     NIF_agencia: Mapped[str] = mapped_column(String(9), ForeignKey(Agencia.NIF), primary_key=True, nullable=False)
-    ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    # ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID, ondelete="CASCADE"), primary_key=True, nullable=False)
+    ID_hotel: Mapped[int] = mapped_column(ForeignKey(Hotel.ID), primary_key=True, nullable=False)
     descuento: Mapped[float] = mapped_column(nullable=False)
 
     agencia: Mapped["Agencia"] = relationship(back_populates="ofertas")

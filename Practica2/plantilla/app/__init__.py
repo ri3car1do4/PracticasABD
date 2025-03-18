@@ -9,8 +9,8 @@ from flask_login import LoginManager
 # disponibles para importar del resto de paquetes.
 
 db = SQLAlchemy()
-login_manager = LoginManager()
-login_manager.login_view = 'auth.login'
+#login_manager = LoginManager()
+#login_manager.login_view = 'auth.login'
 bootstrap = Bootstrap5()
 csrf = CSRFProtect()
 
@@ -27,7 +27,7 @@ def create_app() -> Flask:
 
     # Inicializamos los distintos componentes de la app
     bootstrap.init_app(app)
-    login_manager.init_app(app)
+    # login_manager.init_app(app)
     csrf.init_app(app)
     db.init_app(app)
 

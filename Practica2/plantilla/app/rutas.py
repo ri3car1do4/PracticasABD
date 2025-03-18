@@ -4,7 +4,11 @@ Módulo de Python que contiene las rutas
 import functools
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
-from flask_login import login_user, logout_user, login_required, current_user
+#from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import select
+
+from . import db
+from .modelos import Jugador
 
 
 # @login_manager.user_loader
@@ -48,16 +52,16 @@ def sign_in():
     abort(501)
 
 
-@app.route('/perfil/<int:id_usuario>')
-@login_required
-def perfil_usuario(id_usuario: int):
+# @app.route('/perfil/<int:id_usuario>')
+# @login_required
+#def perfil_usuario(id_usuario: int):
     # Acceso a la página del perfil del usuario.
     # Debe devolver un código de error 404 si el id introducido no pertenece a ningún usuario.
     # En caso de ser correcto, devuelve como respuesta el template "perfil_usuario.html", el cual
     # debereis implementar vosotros. Para simplificar este template, se os adjunta la funcion
     # "mostrar_liga" en el archivo "macro_mostrar_liga", el cual se debe invocar con cada una de las
     # ligas asociadas al usuario (y otra informacion pertinente).
-    abort(501)
+   # abort(501)
 
 
 @app.route('/jugadores')
@@ -66,16 +70,17 @@ def listar_jugadores():
     # Devuelve como respuesta el template "lista_jugadores.html"
     # que debéis implementar vosotros mismos, el cual debe recibir
     # como parámetro una página de jugadores.
+    #jugadores = db.paginate(select(Jugador))
+    #return render_template("lista_jugadores.html", mazos=jugadores, id_mazo2cartas_en_mazo=id_mazo2cartas_en_mazo)
     abort(501)
-
 
 @app.route('/perfil_jugador/<int:id_jugador>')
 def perfil_jugador(id_jugador: int):
     # Muestra el perfil de un jugador de baloncesto.
     # Devuelve un error 404 si el id no está asociado a ningún jugador.
     # Como respuesta, renderiza el template "perfil_jugador.html".
-    abort(501)
-
+    jugador = db.first_or_404(select(Jugador).where(Jugador.id_jugador == id_jugador))
+    return render_template("perfil_jugador.html", jugador=jugador, listar_jugadores=[])
 
 @app.route('/ligas')
 def mostrar_ligas():

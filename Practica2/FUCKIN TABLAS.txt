@@ -78,3 +78,10 @@ CREATE TABLE IF NOT EXISTS Carta_liga (
 );
 
 \copy Jugador(id_jugador,nombre,nombre_equipo, posicion, altura, peso, fecha_nacimiento, pais, url_imagen) FROM '/Users/Ricardo/Documents/GitHub/PracticasABD/Practica2/jugador.csv' WITH CSV HEADER;
+
+\copy Carta(id_jugador,puntuacion,rareza) FROM '/Users/Ricardo/Documents/GitHub/PracticasABD/Practica2/carta.csv' WITH CSV HEADER;
+
+\copy Carta(id_jugador,puntuacion,rareza) FROM '/Users/Ricardo/Documents/GitHub/PracticasABD/Practica2/carta.csv' WITH CSV HEADER;
+
+\copy Partido(id_partido,fecha,equipo_local,equipo_visitante,gana_local,url) FROM '/Users/Ricardo/Documents/GitHub/PracticasABD/Practica2/partido.csv' WITH CSV HEADER;
+

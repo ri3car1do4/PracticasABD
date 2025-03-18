@@ -128,12 +128,13 @@ class GestionHotel:
                          .where(Alojamientos.Ciudad == ciudad)
             query = session.execute(statetment)
             alojamientos = query.fetchall()
-
+            # session scalars options query fetchall: reservas = alojamientos.reservas (ahorrar consultas)
         if len(alojamientos) > 0:
             print(f"Número de Alojamientos de {ciudad}: {len(alojamientos)}\n---")
             for alojamiento in alojamientos:
                 print(f"Alojamiento: {alojamiento[0]} Propietario: {alojamiento[1]}")
                 with Session(self._engine) as session:
+                    alojamiento.reservas
                     statetment = select(Reservas.IdReserva, Reservas.FechaEntrada, Reservas.Precio) \
                         .select_from(Reservas) \
                         .where(Reservas.IdAlojamiento == alojamiento[0]) \

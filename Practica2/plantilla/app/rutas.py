@@ -5,10 +5,10 @@ import functools
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
 #from flask_login import login_user, logout_user, login_required, current_user
-from sqlalchemy import select
+from sqlalchemy import select, desc
 
 from . import db
-from .modelos import Jugador
+from .modelos import Jugador, Historico, Partido
 
 
 # @login_manager.user_loader
@@ -70,9 +70,8 @@ def listar_jugadores():
     # Devuelve como respuesta el template "lista_jugadores.html"
     # que debéis implementar vosotros mismos, el cual debe recibir
     # como parámetro una página de jugadores.
-    #jugadores = db.paginate(select(Jugador))
-    #return render_template("lista_jugadores.html", mazos=jugadores, id_mazo2cartas_en_mazo=id_mazo2cartas_en_mazo)
-    abort(501)
+    jugadores = db.paginate(select(Jugador))
+    return render_template("lista_jugadores.html", jugadores=jugadores)
 
 @app.route('/perfil_jugador/<int:id_jugador>')
 def perfil_jugador(id_jugador: int):
@@ -80,7 +79,15 @@ def perfil_jugador(id_jugador: int):
     # Devuelve un error 404 si el id no está asociado a ningún jugador.
     # Como respuesta, renderiza el template "perfil_jugador.html".
     jugador = db.first_or_404(select(Jugador).where(Jugador.id_jugador == id_jugador))
-    return render_template("perfil_jugador.html", jugador=jugador, listar_jugadores=[])
+    # Lista de tuplas (Historico, Partido) asociados a ese jugador, ordenados por fecha descendente.
+    lista_historico_partido = db.paginate(select(Partido, Historico)) #\
+    """
+                                   .join(Historico, Partido.id_partido == Historico.id_partido) \
+                                   .join(Jugador, Historico.id_jugador == Jugador.id_jugador) \
+                                   .where(Jugador.id_jugador == id_jugador) \
+                                   .order_by(desc(Partido.fecha)))
+                                   """
+    return render_template("perfil_jugador.html", jugador=jugador, lista_historico_partido=lista_historico_partido.items)
 
 @app.route('/ligas')
 def mostrar_ligas():

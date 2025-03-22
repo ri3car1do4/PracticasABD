@@ -1,0 +1,44 @@
+<!-- Template que muestra la lista de jugadores. Debe instanciar las
+siguientes variables:
+ * "jugadores": lista de jugadores
+ -->
+
+{% extends "base_with_navbar.html" %}
+{% from "macro_mostrar_jugador.html" import mostrar_jugador %}
+{% from "bootstrap5/pagination.html" import render_pagination %}
+
+
+{% block title %}
+Lista de Jugadores
+{% endblock %}
+
+
+{% block content %}
+<h1 class="text-center"> Lista de Jugadores </h1>
+
+<div class="container-fluid">
+  <!-- Iteramos sobre los jugadores con un 'enumerate' -->
+  {% for jugador in jugadores %}
+    <!-- Mostramos 4 elementos por fila. Cada 4 elementos, introducimos una nueva fila -->
+    <!-- Para acceder a la iteración actual, usamos la variable especial "loop.index0" -->
+    {% if loop.index0 % 4 == 0 %}
+      <div class="row">
+    {% endif %}
+    <!-- Invomacomes a mostrar_jugador dentro de un div -->
+    <div class="col-3 my-3">
+        {{ mostrar_jugador(jugador) }}
+    </div>
+    <!-- Tenemos que cerrar el elemento <div> -->
+    {% if loop.index0 % 4 == 3 %}
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <!-- Renderizamos el widged para la paginacion -->
+  <div class="row">
+    <div class="col-6">
+      {{ render_pagination(jugadores) }}
+    </div>
+  </div>
+</div>
+{% endblock %}

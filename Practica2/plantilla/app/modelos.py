@@ -3,7 +3,7 @@ Modulo en el que definimos los modelos relacionales de nuestra aplicacion
 """
 
 from typing import List
-import datetime
+from datetime import date
 from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import String, Integer, Boolean, ForeignKey, Numeric
@@ -11,7 +11,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from flask_login import UserMixin
 
 from typing import List
-import datetime
 from . import db
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import String, Integer, Boolean, ForeignKey
@@ -30,6 +29,29 @@ class Jugador(db.Model):
     posicion: Mapped[str] = mapped_column(String(20), nullable=False)
     altura: Mapped[float] = mapped_column(Numeric(4, 1), nullable=False)
     peso: Mapped[float] = mapped_column(Numeric(4, 1), nullable=True)
-    fecha_nacimiento: Mapped[datetime.date] = mapped_column(nullable=False)
+    fecha_nacimiento: Mapped[date] = mapped_column(nullable=False)
     pais: Mapped[str] = mapped_column(String(30), nullable=False)
     url_imagen: Mapped[str] = mapped_column(String, nullable=False)
+
+class Partido(db.Model):
+    """
+    Partidos de la NBA
+    """
+
+    id_partido: Mapped[int] = mapped_column(Integer, primary_key=True)
+    fecha: Mapped[date] = mapped_column(nullable=False)
+    equipo_local: Mapped[str] = mapped_column(String(30), nullable=False)
+    equipo_visitante: Mapped[str] = mapped_column(String(30), nullable=False)
+    gana_local: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    url: Mapped[str] = mapped_column(String, nullable=False)
+
+class Historico(db.Model):
+    """
+    Historico de partidos de cada jugador
+    """
+
+    id_jugador: Mapped[int] = mapped_column(Integer, ForeignKey(Jugador.id_jugador), primary_key=True)
+    id_partido: Mapped[int] = mapped_column(Integer, ForeignKey(Partido.id_partido), primary_key=True)
+    tiempo_jugado: Mapped[int] = mapped_column(Integer, nullable=False)
+    puntos_marcados: Mapped[int] = mapped_column(Integer, nullable=True)
+    puntuacion: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)

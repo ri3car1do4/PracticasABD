@@ -80,14 +80,12 @@ def perfil_jugador(id_jugador: int):
     # Como respuesta, renderiza el template "perfil_jugador.html".
     jugador = db.first_or_404(select(Jugador).where(Jugador.id_jugador == id_jugador))
     # Lista de tuplas (Historico, Partido) asociados a ese jugador, ordenados por fecha descendente.
-    lista_historico_partido = db.paginate(select(Partido, Historico)) #\
-    """
-                                   .join(Historico, Partido.id_partido == Historico.id_partido) \
-                                   .join(Jugador, Historico.id_jugador == Jugador.id_jugador) \
-                                   .where(Jugador.id_jugador == id_jugador) \
-                                   .order_by(desc(Partido.fecha)))
-                                   """
-    return render_template("perfil_jugador.html", jugador=jugador, lista_historico_partido=lista_historico_partido.items)
+    lista_historico_partido = db.session.execute(select(Historico, Partido) \
+                                               .join(Historico, Partido.id_partido == Historico.id_partido) \
+                                               .join(Jugador, Historico.id_jugador == Jugador.id_jugador) \
+                                               .where(Jugador.id_jugador == id_jugador) \
+                                               .order_by(desc(Partido.fecha)))
+    return render_template("perfil_jugador.html", jugador=jugador, lista_historico_partido=lista_historico_partido)
 
 @app.route('/ligas')
 def mostrar_ligas():

@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS Historico (
 
 CREATE TABLE IF NOT EXISTS Usuario (
   id SERIAL,
-  email VARCHAR(30) NOT NULL,
+  email VARCHAR(30) UNIQUE NOT NULL,
   cumple DATE NOT NULL,
   password_hash VARCHAR NOT NULL,
   ultima_tirada DATE,

@@ -10,6 +10,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
 import email_validator
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import db
 from .formularios import SignupForm, SignInForm
@@ -39,21 +40,18 @@ def sign_up():
         # Creo un objeto usuario
         # De aquellos campos que pueden ser nulos, hago .get en lugar de acceder
         # directamente.
-        usuario = Usuario(email=form.data["email"], cumple=form.data["cumple"])
-
-        usuario.password_hash = hash(form.data["password"])
+        usuario = Usuario(email=form.data["email"], cumple=form.data["cumple"], password_hash=generate_password_hash(form.data["password"]))
 
         # Lo intento añadir a la sesión. Si el email ya existe,
-        # se genera una excepción 'IntegrityError'. Otra opción sería haber hecho una consulta para
-        # comprobar si el email ya existía en la base de datos
+        # se genera una excepción 'IntegrityError'.
         try:
             db.session.add(usuario)
             db.session.commit()
-            login_user(usuario)
-            return redirect(url_for('perfil_usuario', email=form.data["email"]))
+            # login_user(usuario)
+            return redirect(url_for('perfil_usuario', id_usuario=usuario.id))
 
         # Capturo la excepcion IntegrityError. Esta excepción se lanza con errores en la integridad
-        # de los datos. Por ejemplo, al violar que el email es unico
+        # de los datos. Al violar que el email es unico
         except IntegrityError:
             # Mensajes flash: se muestran en la sesion
             flash("Ya existe un usuario con este email...")
@@ -86,31 +84,31 @@ def sign_in():
         password = form.data["password"]
         # Se puede gestionar de forma más elegante
         usuario = db.session.scalars(select(Usuario).where(Usuario.email == email).options(load_only(Usuario.email,
-                                                                                                  Usuario.password_hash))).fetchall()
+                                                                                                  Usuario.password_hash))).first()
         if usuario:
-            if usuario.check_password(password):
-                login_user(usuario)
-                print("Redirigiendo")
+            if check_password_hash(usuario.password_hash, password):
+                # login_user(usuario) AttributeError: 'Usuario' object has no attribute 'is_active'
+                # print("Redirigiendo")
                 return redirect(url_for('tirada_diaria', email=email))
             else:
                 flash("Contraseña incorrecta")
         else:
             flash("El email introducido no tiene un usuario asociado")
-            # redirect
+            redirect(url_for('sign_in'))
 
     return render_template("sign_in.html", form=form)
 
 
-# @app.route('/perfil/<int:id_usuario>')
+@app.route('/perfil/<int:id_usuario>')
 # @login_required
-#def perfil_usuario(id_usuario: int):
+def perfil_usuario(id_usuario: int):
     # Acceso a la página del perfil del usuario.
     # Debe devolver un código de error 404 si el id introducido no pertenece a ningún usuario.
     # En caso de ser correcto, devuelve como respuesta el template "perfil_usuario.html", el cual
     # debereis implementar vosotros. Para simplificar este template, se os adjunta la funcion
     # "mostrar_liga" en el archivo "macro_mostrar_liga", el cual se debe invocar con cada una de las
     # ligas asociadas al usuario (y otra informacion pertinente).
-   # abort(501)
+   abort(501)
 
 
 @app.route('/jugadores')

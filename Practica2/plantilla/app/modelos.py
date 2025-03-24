@@ -63,7 +63,7 @@ class Usuario(db.Model):
     """
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String(30), nullable=False)
+    email: Mapped[str] = mapped_column(String(30), nullable=False, unique=True)
     cumple: Mapped[date] = mapped_column(nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     ultima_tirada: Mapped[date] = mapped_column(nullable=True)

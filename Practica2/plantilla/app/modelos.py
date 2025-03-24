@@ -55,3 +55,16 @@ class Historico(db.Model):
     tiempo_jugado: Mapped[int] = mapped_column(Integer, nullable=False)
     puntos_marcados: Mapped[int] = mapped_column(Integer, nullable=True)
     puntuacion: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
+
+
+class Usuario(db.Model):
+    """
+    Usuario de la aplicación
+    """
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(String(30), nullable=False)
+    cumple: Mapped[date] = mapped_column(nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    ultima_tirada: Mapped[date] = mapped_column(nullable=True)
+

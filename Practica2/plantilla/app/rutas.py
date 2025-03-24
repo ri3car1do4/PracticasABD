@@ -4,16 +4,21 @@ Módulo de Python que contiene las rutas
 import functools
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
+from flask_login import login_user
 #from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import select, desc
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import load_only
+import email_validator
 
 from . import db
-from .modelos import Jugador, Historico, Partido
+from .formularios import SignupForm, SignInForm
+from .modelos import Jugador, Historico, Partido, Usuario
 
 
 # @login_manager.user_loader
 # def carga_usuario(id_usuario: str):
-#    pass
+#    return db.session.get(Usuario, int(id_usuario))
 
 
 @app.route('/registrarse', methods=['GET', 'POST'])
@@ -28,7 +33,32 @@ def sign_up():
     # Si el usuario se ha registrado correctamente, se almacena en el sistema y se devuelve
     # como respuesta una redirección a la función de vista del perfil del usuario ("perfil_usuario")
     # con el usuario que se acaba de registrar. Ese usuario se debe loggear.
-    abort(501)
+    form = SignupForm()
+    # Valido el formulario (solo para POST)
+    if form.validate_on_submit():
+        # Creo un objeto usuario
+        # De aquellos campos que pueden ser nulos, hago .get en lugar de acceder
+        # directamente.
+        usuario = Usuario(email=form.data["email"], cumple=form.data["cumple"])
+
+        usuario.password_hash = hash(form.data["password"])
+
+        # Lo intento añadir a la sesión. Si el email ya existe,
+        # se genera una excepción 'IntegrityError'. Otra opción sería haber hecho una consulta para
+        # comprobar si el email ya existía en la base de datos
+        try:
+            db.session.add(usuario)
+            db.session.commit()
+            login_user(usuario)
+            return redirect(url_for('perfil_usuario', email=form.data["email"]))
+
+        # Capturo la excepcion IntegrityError. Esta excepción se lanza con errores en la integridad
+        # de los datos. Por ejemplo, al violar que el email es unico
+        except IntegrityError:
+            # Mensajes flash: se muestran en la sesion
+            flash("Ya existe un usuario con este email...")
+
+    return render_template("sign_up.html", form=form)
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -49,7 +79,26 @@ def sign_in():
     #
     # Si la contraseña es incorrecta, se lanza un mensaje flash con "Contraseña incorrecta" y se vuelve a mostrar
     # el formulario de acceso.
-    abort(501)
+    form = SignInForm()
+    # Valido el formulario (solo para POST)
+    if form.validate_on_submit():
+        email = form.data["email"]
+        password = form.data["password"]
+        # Se puede gestionar de forma más elegante
+        usuario = db.session.scalars(select(Usuario).where(Usuario.email == email).options(load_only(Usuario.email,
+                                                                                                  Usuario.password_hash))).fetchall()
+        if usuario:
+            if usuario.check_password(password):
+                login_user(usuario)
+                print("Redirigiendo")
+                return redirect(url_for('tirada_diaria', email=email))
+            else:
+                flash("Contraseña incorrecta")
+        else:
+            flash("El email introducido no tiene un usuario asociado")
+            # redirect
+
+    return render_template("sign_in.html", form=form)
 
 
 # @app.route('/perfil/<int:id_usuario>')

@@ -4,22 +4,21 @@ Módulo de Python que contiene las rutas
 import functools
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
-from flask_login import login_user
-#from flask_login import login_user, logout_user, login_required, current_user
-from sqlalchemy import select, desc
+from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import select, desc, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
 import email_validator
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from . import db
+from . import db, login_manager
 from .formularios import SignupForm, SignInForm
-from .modelos import Jugador, Historico, Partido, Usuario
+from .modelos import Jugador, Historico, Partido, Usuario, Liga, Participa_liga
 
 
-# @login_manager.user_loader
-# def carga_usuario(id_usuario: str):
-#    return db.session.get(Usuario, int(id_usuario))
+@login_manager.user_loader
+def carga_usuario(id_usuario: str):
+    return db.session.get(Usuario, int(id_usuario))
 
 
 @app.route('/registrarse', methods=['GET', 'POST'])
@@ -47,7 +46,7 @@ def sign_up():
         try:
             db.session.add(usuario)
             db.session.commit()
-            # login_user(usuario)
+            login_user(usuario)
             return redirect(url_for('perfil_usuario', id_usuario=usuario.id))
 
         # Capturo la excepcion IntegrityError. Esta excepción se lanza con errores en la integridad
@@ -87,7 +86,7 @@ def sign_in():
                                                                                                   Usuario.password_hash))).first()
         if usuario:
             if check_password_hash(usuario.password_hash, password):
-                # login_user(usuario) AttributeError: 'Usuario' object has no attribute 'is_active'
+                login_user(usuario) # AttributeError: 'Usuario' object has no attribute 'is_active'
                 # print("Redirigiendo")
                 return redirect(url_for('tirada_diaria', email=email))
             else:
@@ -108,7 +107,11 @@ def perfil_usuario(id_usuario: int):
     # debereis implementar vosotros. Para simplificar este template, se os adjunta la funcion
     # "mostrar_liga" en el archivo "macro_mostrar_liga", el cual se debe invocar con cada una de las
     # ligas asociadas al usuario (y otra informacion pertinente).
-   abort(501)
+    usuario = db.first_or_404(select(Usuario).where(Usuario.id == id_usuario))
+    ligas_usuario = db.paginate(select(Liga).join(Participa_liga, Liga.id == Participa_liga.id_liga).where(Participa_liga.id_usuario == id_usuario))
+    num_usuarios = dict(db.session.execute(select(Participa_liga.id_liga, func.count(Participa_liga.id_usuario)).group_by(Participa_liga.id_liga)).fetchall())
+    participa_liga = { liga_id: True for liga_id, in db.session.execute(select(Participa_liga.id_liga).where(Participa_liga.id_usuario == id_usuario)).fetchall() }
+    return render_template("perfil_usuario.html", usuario=usuario, ligas=ligas_usuario, num_usuarios=num_usuarios, participa_liga=participa_liga)
 
 
 @app.route('/jugadores')

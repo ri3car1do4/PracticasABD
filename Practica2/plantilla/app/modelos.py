@@ -57,9 +57,9 @@ class Historico(db.Model):
     puntuacion: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False)
 
 
-class Usuario(db.Model):
+class Usuario(db.Model, UserMixin):
     """
-    Usuario de la aplicación
+    Usuarios de la aplicación
     """
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -68,3 +68,21 @@ class Usuario(db.Model):
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     ultima_tirada: Mapped[date] = mapped_column(nullable=True)
 
+class Liga(db.Model):
+    """
+    Ligas de la aplicación
+    """
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(30), nullable=False)
+    numero_participantes_maximo: Mapped[int] = mapped_column(Integer, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=True)
+
+class Participa_liga(db.Model):
+    """
+    Asociación Ligas con usuarios
+    """
+
+    id_liga: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id_usuario: Mapped[int] = mapped_column(Integer, primary_key=True)
+    puntuacion_acumulada: Mapped[float] = mapped_column(Numeric, default=0, nullable=False)

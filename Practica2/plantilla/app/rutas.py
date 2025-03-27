@@ -2,6 +2,7 @@
 Módulo de Python que contiene las rutas
 """
 import functools
+from datetime import date
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
 from flask_login import login_user, logout_user, login_required, current_user
@@ -12,8 +13,8 @@ import email_validator
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import db, login_manager
-from .formularios import SignupForm, SignInForm
-from .modelos import Jugador, Historico, Partido, Usuario, Liga, Participa_liga
+from .formularios import SignupForm, SignInForm, NuevaLiga
+from .modelos import Jugador, Historico, Partido, Usuario, Liga, Participa_liga, Carta
 
 
 @login_manager.user_loader
@@ -81,7 +82,6 @@ def sign_in():
     if form.validate_on_submit():
         email = form.data["email"]
         password = form.data["password"]
-        # Se puede gestionar de forma más elegante
         usuario = db.session.scalars(select(Usuario).where(Usuario.email == email).options(load_only(Usuario.email,
                                                                                                   Usuario.password_hash))).first()
         if usuario:
@@ -99,7 +99,7 @@ def sign_in():
 
 
 @app.route('/perfil/<int:id_usuario>')
-# @login_required
+@login_required
 def perfil_usuario(id_usuario: int):
     # Acceso a la página del perfil del usuario.
     # Debe devolver un código de error 404 si el id introducido no pertenece a ningún usuario.
@@ -187,6 +187,7 @@ def unirse_liga(id_liga: int):
 
 
 @app.route('/crear_liga', methods=["GET", "POST"])
+@login_required
 def crear_liga():
     # Creacion de una liga.
     # Solo los usuarios registrados pueden acceder a la creacion de ligas. Además, si un usuario ya
@@ -198,10 +199,31 @@ def crear_liga():
     # mientras que la contraseña es opcional. Se creara una liga
     # con estos datos, se registrara al creador en esa liga y se le redirigirá posteriormente a su perfil, con
     # un mensaje flash indicando que la liga se ha creado correctamente: "Se ha creado la liga correctamente".)
-    abort(501)
+    num_ligas = db.session.execute(select(func.count()).where(Participa_liga.id_usuario == current_user.id).group_by(Participa_liga.id_liga)).first()
+    if num_ligas is None:
+        num_ligas = 0  # Si no hay ligas, asumimos que es 0
+    if num_ligas > 10:
+        flash("Has excedido el numero máximo de ligas.")
+        return redirect(url_for('perfil', id_usuario=current_user.id))
+    else:
+        nueva_liga = NuevaLiga()
+        if nueva_liga.validate_on_submit():
+            nombre_liga = nueva_liga.data["nombre"]
+            num_max_participantes = nueva_liga.data["numero_participantes_maximo"]
+            password = hash(nueva_liga.data["password"])
+            liga = Liga(nombre=nombre_liga, numero_participantes_maximo=num_max_participantes, password_hash=password)
+            db.session.add(liga)
+            db.session.commit()
+            db.session.add(Participa_liga(id_liga=liga.id, id_usuario=current_user.id))
+            db.session.commit()
+            flash("Se ha creado la liga correctamente")
+            redirect(url_for('perfil_usuario', id_usuario=current_user.id))
+        return render_template('crear_liga.html', form=nueva_liga)
+
 
 
 @app.route("/desconexion")
+@login_required
 def desconectarse():
     # Desconexión de un usuario de la aplicación.
     # Hay que comprobar que el usuario estaba previamente loggeado.
@@ -209,10 +231,12 @@ def desconectarse():
     # * Hacer log-out del usuarios
     # * Mandar un mensaje flash avisando que la desconexion ha sido correcta
     # * Redireccionar a la pagina de inicio
-    abort(501)
-
+    logout_user()
+    flash('Te has desconectado.')
+    return redirect(url_for('sign_in'))
 
 @app.route("/tirada_diaria")
+@login_required
 def tirada_diaria():
     # Tirada diaria de cartas.
     # Hay que comprobar que el usuario estaba previamente loggeado.
@@ -223,4 +247,14 @@ def tirada_diaria():
     # función de la rareza de las cartas y se le añade a las cartas del usuario. Si el usuario ya tenía esa carta,
     # se le suma uno al número de copias. Si es el cumpleaños del usuario, hay que generar una carta de cada categoría.
     # Devuelve como respuesta el template "tirada_diaria.html".
-    abort(501)
+    if current_user.ultima_tirada == date.today():
+        flash("Ya has obtenido cartas hoy, vuelve mañana.")
+        return redirect(url_for('perfil', id_usuario=current_user.id))
+    else:
+        lista_liga_carta = []
+        participa_liga = db.session.execute(select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)).fetchall()
+        for liga in participa_liga:
+            carta_aleatoria = db.session.scalars(select(Carta).order_by(func.random()).limit(1)).first()
+            lista_liga_carta.append((liga, carta_aleatoria))
+            # FALTA METER LA CARTA EN LA TABLA CARTA_LIGA
+        return render_template("tirada_diaria.html", lista_liga_carta=lista_liga_carta)

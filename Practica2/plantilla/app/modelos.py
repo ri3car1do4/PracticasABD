@@ -86,3 +86,12 @@ class Participa_liga(db.Model):
     id_liga: Mapped[int] = mapped_column(Integer, primary_key=True)
     id_usuario: Mapped[int] = mapped_column(Integer, primary_key=True)
     puntuacion_acumulada: Mapped[float] = mapped_column(Numeric, default=0, nullable=False)
+
+class Carta(db.Model):
+    """
+    Carta asociada a cada jugador
+    """
+
+    id_jugador: Mapped[int] = mapped_column(Integer, primary_key=True)
+    puntuacion: Mapped[float] = mapped_column(Numeric(4, 1), default=0, nullable=False)
+    rareza: Mapped[str] = mapped_column(String(15), nullable=False)

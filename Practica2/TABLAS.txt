@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS Participa_liga (
   id_usuario INTEGER,
   puntuacion_acumulada NUMERIC NOT NULL DEFAULT 0,
   PRIMARY KEY(id_liga, id_usuario),
-  FOREIGN KEY (id_liga) REFERENCES Usuario(id),
-  FOREIGN KEY (id_usuario) REFERENCES Liga(id)
+  FOREIGN KEY (id_liga) REFERENCES Liga(id),
+  FOREIGN KEY (id_usuario) REFERENCES Usuario(id)
 );
 
 CREATE TABLE IF NOT EXISTS Carta (

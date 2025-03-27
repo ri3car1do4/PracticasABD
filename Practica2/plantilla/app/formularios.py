@@ -63,3 +63,15 @@ class SignInForm(FlaskForm):
     )
 
     submit = SubmitField('Submit')
+
+class NuevaLiga(FlaskForm):
+    """Formulario para crear un nueva Liga"""
+    # render_kw nos permite poner texto dentro de la caja de texto
+    nombre = StringField('Nombre', validators=[DataRequired("La liga debe tener nombre.")],
+                           render_kw={"placeholder": "Nombre..."})
+    numero_participantes_maximo = StringField('Número máximo de participantes',
+                           validators=[DataRequired("La liga debe tener un número máximo de participantes.")],
+                           render_kw={"placeholder": "0"})
+    password = StringField('Contraseña', render_kw={"placeholder": "Contraseña..."})
+
+    submit = SubmitField('Aceptar')

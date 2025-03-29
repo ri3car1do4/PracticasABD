@@ -199,7 +199,7 @@ def crear_liga():
     # mientras que la contraseña es opcional. Se creara una liga
     # con estos datos, se registrara al creador en esa liga y se le redirigirá posteriormente a su perfil, con
     # un mensaje flash indicando que la liga se ha creado correctamente: "Se ha creado la liga correctamente".)
-    num_ligas = db.session.execute(select(func.count()).where(Participa_liga.id_usuario == current_user.id).group_by(Participa_liga.id_liga)).first()
+    num_ligas = db.session.scalars(select(func.count()).where(Participa_liga.id_usuario == current_user.id).group_by(Participa_liga.id_liga)).first()
     if num_ligas is None:
         num_ligas = 0  # Si no hay ligas, asumimos que es 0
     if num_ligas > 10:
@@ -252,9 +252,11 @@ def tirada_diaria():
         return redirect(url_for('perfil', id_usuario=current_user.id))
     else:
         lista_liga_carta = []
+        """
         participa_liga = db.session.execute(select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)).fetchall()
         for liga in participa_liga:
             carta_aleatoria = db.session.scalars(select(Carta).order_by(func.random()).limit(1)).first()
             lista_liga_carta.append((liga, carta_aleatoria))
             # FALTA METER LA CARTA EN LA TABLA CARTA_LIGA
+        """
         return render_template("tirada_diaria.html", lista_liga_carta=lista_liga_carta)

@@ -14,7 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import db, login_manager
 from .formularios import SignupForm, SignInForm, NuevaLiga
-from .modelos import Jugador, Historico, Partido, Usuario, Liga, Participa_liga, Carta
+from .modelos import Jugador, Historico, Partido, Usuario, Liga, Participa_liga, Carta, CartaLiga
 
 
 @login_manager.user_loader
@@ -155,8 +155,16 @@ def mostrar_liga(id_liga: int):
     # Muestra la liga asociada al id "id_liga".
     # Devuelve un error 404 si la liga no existe.
     # Devuelve como respuesta el template "mostrar_liga_participante.html"
-    abort(501)
+    liga = db.session.get(Liga, id_liga)
+    if not liga:
+        abort(404)  # para el error si no existe la liga
 
+    consulta_participantes = select(Participa_liga).where(Participa_liga.id_liga == id_liga)
+    pagina_participaciones = db.paginate(consulta_participantes)
+
+    num_participantes = db.session.execute(select(func.count()).where(Participa_liga.id_liga == id_liga)).scalar()
+
+    return render_template("mostrar_liga_participante.html",liga=liga,pagina_participaciones=pagina_participaciones,num_participantes=num_participantes)
 
 @app.route('/perfil/<int:id_usuario>/liga/<int:id_liga>/cartas')
 def cartas_usuario_en_liga(id_usuario: int, id_liga: int):
@@ -166,7 +174,30 @@ def cartas_usuario_en_liga(id_usuario: int, id_liga: int):
     # Para mostrar las cartas de un usuario en una liga, utilizaremos una
     # paginacion de las mismas. Esta funcion devuelve el template
     # "mostrar_cartas_liga_participante.html."
-    abort(501)
+    liga = db.session.get(Liga, id_liga)
+    usuario = db.session.get(Usuario, id_usuario)
+    if not liga or not usuario:
+        abort(404)  # si alguno no existe dara error
+
+    paginacion_carta_liga = db.paginate(select(CartaLiga).where((CartaLiga.id_usuario == id_usuario) & (CartaLiga.id_liga == id_liga)))
+
+    id_jugadores = [carta.id_jugador for carta in paginacion_carta_liga.items]
+
+    cartas = db.session.execute(select(Carta).where(Carta.id_jugador.in_(id_jugadores))).scalars().all() if id_jugadores else []
+
+    jugadores = db.session.execute(select(Jugador).where(Jugador.id_jugador.in_(id_jugadores))).scalars().all() if id_jugadores else []
+
+    id2carta = {carta.id_jugador: carta for carta in cartas}
+    id2jugador = {jugador.id_jugador: jugador for jugador in jugadores}
+
+    return render_template(
+        "mostrar_cartas_liga_participante.html",
+        id_usuario=id_usuario,
+        id_liga=id_liga,
+        paginacion_carta_liga=paginacion_carta_liga,
+        id2carta=id2carta,
+        id2jugador=id2jugador
+    )
 
 
 @app.route('/unirse_liga/<int:id_liga>', methods=["GET", "POST"])

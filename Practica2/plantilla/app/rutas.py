@@ -142,7 +142,12 @@ def mostrar_ligas():
     # Muestra la lista de ligas del sistema.
     # Como puede haber numerosas ligas, se utiliza la paginación de las mismas.
     # Devuelve como respuesta el template "mostrar_ligas.html".
-    abort(501)
+    ligas = db.paginate(select(Liga))
+    consulta_num_usuarios = (select(Participa_liga.id_liga, func.count(Participa_liga.id_usuario)).group_by(Participa_liga.id_liga))
+    num_usuarios = dict(db.session.execute(consulta_num_usuarios).fetchall())
+    consulta_participa = select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)
+    participa_liga = {liga_id: True for liga_id, in db.session.execute(consulta_participa).fetchall()}
+    return render_template("mostrar_ligas.html",ligas=ligas,num_usuarios=num_usuarios,participa_liga=participa_liga)
 
 
 @app.route('/liga/<int:id_liga>')

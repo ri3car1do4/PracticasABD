@@ -75,3 +75,14 @@ class NuevaLiga(FlaskForm):
     password = StringField('Contraseña', render_kw={"placeholder": "Contraseña..."})
 
     submit = SubmitField('Aceptar')
+
+class PasswordForm(FlaskForm):
+    """Formulario para la contraseña de una liga"""
+    password = PasswordField(
+        'Contraseña',
+        [
+            DataRequired(message="Introduzca una contraseña."),
+        ]
+    )
+
+    submit = SubmitField('Submit')

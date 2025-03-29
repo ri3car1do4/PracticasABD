@@ -92,6 +92,17 @@ class Carta(db.Model):
     Carta asociada a cada jugador
     """
 
-    id_jugador: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id_jugador: Mapped[int] = mapped_column(Integer, ForeignKey(Jugador.id_jugador), primary_key=True)
     puntuacion: Mapped[float] = mapped_column(Numeric(4, 1), default=0, nullable=False)
     rareza: Mapped[str] = mapped_column(String(15), nullable=False)
+
+
+class Carta_liga:
+    """
+    Carta de cada usuario asociada a una liga
+    """
+
+    id_liga: Mapped[int] = mapped_column(Integer, ForeignKey(Participa_liga.id_liga), primary_key=True)
+    id_usuario: Mapped[int] = mapped_column(Integer, ForeignKey(Participa_liga.id_usuario), primary_key=True)
+    id_jugador: Mapped[int] = mapped_column(Integer, ForeignKey(Carta.id_jugador), primary_key=True)
+    numero_copias: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

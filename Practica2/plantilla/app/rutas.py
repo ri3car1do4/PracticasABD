@@ -178,7 +178,9 @@ def cartas_usuario_en_liga(id_usuario: int, id_liga: int):
     if not liga or not usuario:
         abort(404)  # si alguno no existe dara error
 
-    paginacion_carta_liga = db.paginate(select(Carta_liga).where(and_(Carta_liga.id_usuario == id_usuario, Carta_liga.id_liga == id_liga)))
+    #paginacion_carta_liga = db.paginate(select(Carta_liga).where(and_(Carta_liga.id_usuario == id_usuario, Carta_liga.id_liga == id_liga)))
+    consulta_carta = select(Carta_liga).where(and_(Carta_liga.id_usuario == id_usuario, Carta_liga.id_liga == id_liga))
+    paginacion_carta_liga = db.paginate(consulta_carta)
 
     id_jugadores = [carta.id_jugador for carta in paginacion_carta_liga.items]
 

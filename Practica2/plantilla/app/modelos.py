@@ -97,7 +97,7 @@ class Carta(db.Model):
     rareza: Mapped[str] = mapped_column(String(15), nullable=False)
 
 
-class Carta_liga:
+class Carta_liga(db.Model):
     """
     Carta de cada usuario asociada a una liga
     """

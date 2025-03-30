@@ -7,7 +7,7 @@ from datetime import date
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
 from flask_login import login_user, logout_user, login_required, current_user
-from sqlalchemy import select, desc, func, and_
+from sqlalchemy import select, desc, func, and_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
 import email_validator
@@ -148,7 +148,6 @@ def mostrar_ligas():
     if current_user.is_anonymous:
         participa_liga = {}
     else:
-        flash(current_user.id)
         consulta_participa = select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)
         participa_liga = {liga_id: True for liga_id, in db.session.execute(consulta_participa).fetchall()}
     return render_template("mostrar_ligas.html",ligas=ligas,num_usuarios=num_usuarios,participa_liga=participa_liga)
@@ -311,16 +310,29 @@ def tirada_diaria():
     # función de la rareza de las cartas y se le añade a las cartas del usuario. Si el usuario ya tenía esa carta,
     # se le suma uno al número de copias. Si es el cumpleaños del usuario, hay que generar una carta de cada categoría.
     # Devuelve como respuesta el template "tirada_diaria.html".
-    if current_user.ultima_tirada == date.today():
+    fecha_nacimiento = current_user.cumple
+    hoy = date.today()
+    ultima_tirada = current_user.ultima_tirada
+    if ultima_tirada == hoy:
         flash("Ya has obtenido cartas hoy, vuelve mañana.")
-        return redirect(url_for('perfil', id_usuario=current_user.id))
+        return redirect(url_for('perfil_usuario', id_usuario=current_user.id))
     else:
         lista_liga_carta = []
         participa_liga = db.session.scalars(select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)).fetchall()
-        current_user.ultimatirada = date.today()
+        if participa_liga:
+            db.session.execute(update(Usuario).where(Usuario.id == current_user.id).values(ultima_tirada=date.today()))
+            db.session.commit()
         for liga_id in participa_liga:
-            carta_aleatoria = generar_carta_aleatoria(liga_id)
-            lista_liga_carta.append((db.session.get(Liga, liga_id), carta_aleatoria))
+            if (fecha_nacimiento.month, fecha_nacimiento.day) == (hoy.month, hoy.day):
+                flash("FELIZ CUMPLEAÑOS!!!")
+                rarezas = ['mitica', 'rara', 'infrecuente', 'comun']
+                for rareza in rarezas:
+                    carta_aleatoria = generar_carta_aleatoria(liga_id, rareza)
+                    lista_liga_carta.append((db.session.get(Liga, liga_id), carta_aleatoria,
+                                             db.session.get(Jugador, carta_aleatoria.id_jugador)))
+            else:
+                carta_aleatoria = generar_carta_aleatoria(liga_id, generar_rareza())
+                lista_liga_carta.append((db.session.get(Liga, liga_id), carta_aleatoria, db.session.get(Jugador, carta_aleatoria.id_jugador)))
         return render_template("tirada_diaria.html", lista_liga_carta=lista_liga_carta)
 
 """ FUNCIONES AUXILIARES """
@@ -330,29 +342,36 @@ def anyadir_usuario_liga(liga_id: int):
     db.session.commit()
     flash("Te has unido correctamente a la liga")
     # Carta de bienvenida a la liga
-    generar_carta_aleatoria(liga_id)
+    generar_carta_aleatoria(liga_id, generar_rareza())
 
-def generar_carta_aleatoria(liga_id: int):
+def generar_carta_aleatoria(liga_id: int, rareza: str):
     # Generamos carta aleatoria
-    carta_aleatoria = db.session.scalars(select(Carta).where(Carta.rareza == rareza()).order_by(func.random()).limit(1)).first()
+    carta_aleatoria = db.session.scalars(select(Carta).where(Carta.rareza == rareza).order_by(func.random()).limit(1)).first()
     # Asociamos la carta a una liga
     num_copias = db.session.scalars(select(Carta_liga.numero_copias)
                                     .where(and_(Carta_liga.id_liga == liga_id, Carta_liga.id_usuario == current_user.id,
                                                 Carta_liga.id_jugador == carta_aleatoria.id_jugador))).first()
     if num_copias is None:
         num_copias = 0
-    db.session.add(Carta_liga(id_liga=liga_id, id_usuario=current_user.id, id_jugador=carta_aleatoria.id_jugador,
-                              numero_copias=num_copias + 1))
+
+    if num_copias > 0:
+        db.session.execute(update(Carta_liga.numero_copias).where(and_(Carta_liga.id_liga == liga_id,
+                                                                       Carta_liga.id_usuario == current_user.id,
+                                                                       Carta_liga.id_jugador == carta_aleatoria.id_jugador))
+                           .values(numero_copias=num_copias+1))
+    else:
+        db.session.add(Carta_liga(id_liga=liga_id, id_usuario=current_user.id, id_jugador=carta_aleatoria.id_jugador,
+                              numero_copias=1))
     db.session.commit()
     return carta_aleatoria
 
-def rareza():
+def generar_rareza():
     num = random.randint(1, 100)
-    if 1 <= num and num >= 5: # 5%
+    if 1 <= num and num <= 5: # 5%
         return 'mitica'
-    elif 6 <= num and num >= 20: # 15%
+    elif 6 <= num and num <= 20: # 15%
         return 'rara'
-    elif 21 <= num and num >= 50: # 30%
+    elif 21 <= num and num <= 50: # 30%
         return 'infrecuente'
-    elif 51 <= num and num >= 100: # 50%
+    elif 51 <= num and num <= 100: # 50%
         return 'comun'

@@ -2,6 +2,7 @@
 Módulo de Python que contiene las rutas
 """
 import functools
+import random
 from datetime import date
 
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
@@ -144,8 +145,12 @@ def mostrar_ligas():
     ligas = db.paginate(select(Liga))
     consulta_num_usuarios = (select(Participa_liga.id_liga, func.count(Participa_liga.id_usuario)).group_by(Participa_liga.id_liga))
     num_usuarios = dict(db.session.execute(consulta_num_usuarios).fetchall())
-    consulta_participa = select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)
-    participa_liga = {liga_id: True for liga_id, in db.session.execute(consulta_participa).fetchall()}
+    if current_user.is_anonymous:
+        participa_liga = {}
+    else:
+        flash(current_user.id)
+        consulta_participa = select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)
+        participa_liga = {liga_id: True for liga_id, in db.session.execute(consulta_participa).fetchall()}
     return render_template("mostrar_ligas.html",ligas=ligas,num_usuarios=num_usuarios,participa_liga=participa_liga)
 
 
@@ -154,9 +159,7 @@ def mostrar_liga(id_liga: int):
     # Muestra la liga asociada al id "id_liga".
     # Devuelve un error 404 si la liga no existe.
     # Devuelve como respuesta el template "mostrar_liga_participante.html"
-    liga = db.session.get(Liga, id_liga)
-    if not liga:
-        abort(404)  # para el error si no existe la liga
+    liga = db.first_or_404(select(Liga).where(Liga.id == id_liga))
 
     consulta_participantes = select(Participa_liga).where(Participa_liga.id_liga == id_liga)
     pagina_participaciones = db.paginate(consulta_participantes)
@@ -173,10 +176,8 @@ def cartas_usuario_en_liga(id_usuario: int, id_liga: int):
     # Para mostrar las cartas de un usuario en una liga, utilizaremos una
     # paginacion de las mismas. Esta funcion devuelve el template
     # "mostrar_cartas_liga_participante.html."
-    liga = db.session.get(Liga, id_liga)
-    usuario = db.session.get(Usuario, id_usuario)
-    if not liga or not usuario:
-        abort(404)  # si alguno no existe dara error
+    liga = db.first_or_404(select(Liga).where(Liga.id == id_liga))
+    usuario = db.first_or_404(select(Usuario).where(Usuario.id == id_usuario))
 
     #paginacion_carta_liga = db.paginate(select(Carta_liga).where(and_(Carta_liga.id_usuario == id_usuario, Carta_liga.id_liga == id_liga)))
     consulta_carta = select(Carta_liga).where(and_(Carta_liga.id_usuario == id_usuario, Carta_liga.id_liga == id_liga))
@@ -225,39 +226,28 @@ def unirse_liga(id_liga: int):
     esta_en_liga = db.session.execute(select(Participa_liga)
                                       .where(and_(Participa_liga.id_liga == id_liga, Participa_liga.id_usuario == current_user.id))) \
                                       .fetchall()
-    if not esta_en_liga:
+    if esta_en_liga:
         flash("Ya te has unido a esta liga")
     num_usuarios = db.session.scalars(select(func.count(Participa_liga.id_usuario))
                                       .where(Participa_liga.id_liga == id_liga)
                                       .group_by(Participa_liga.id_usuario)).first()
     if num_usuarios > liga.numero_participantes_maximo:
         flash("¡La liga está al máximo!")
-        return redirect(url_for('ligas'))
+        return redirect(url_for('mostrar_ligas'))
 
-    if liga.password_hash is None:
-        anyadir_usuario_liga(liga)
+    if liga.password_hash is '0':
+        anyadir_usuario_liga(liga.id)
+        return redirect(url_for('mostrar_ligas'))
     else:
         password_liga = PasswordForm()
         if password_liga.validate_on_submit():
-            password = password_liga.data["Contraseña"]
+            password = password_liga.data["password"]
             if check_password_hash(liga.password_hash, password):
-                anyadir_usuario_liga(liga)
+                anyadir_usuario_liga(liga.id)
             else:
                 flash("Contraseña incorrecta")
+            return redirect(url_for('mostrar_ligas'))
         return render_template('unirse_liga.html', liga=liga, form=password_liga)
-
-def anyadir_usuario_liga(liga: Liga):
-    db.session.add(Participa_liga(id_liga=liga.id, id_usuario=current_user.id))
-    db.session.commit()
-    flash("Te has unido correctamente a la liga")
-    # AÑADIR CARTA
-    carta_aleatoria = db.session.scalars(select(Carta).order_by(func.random()).limit(1)).first() # ASI NO
-    num_copias = db.session.scalars(select(Carta_liga.numero_copias)
-                                    .where(and_(Carta_liga.id_liga == liga.id, Carta_liga.id_usuario == current_user.id, Carta_liga.id_jugador == carta_aleatoria.id_jugador))).first()
-    if num_copias is None:
-        num_copias = 0
-    db.session.add(Carta_liga(id_liga= liga.id, id_usuario=current_user.id, id_jugador=carta_aleatoria.id_jugador, numero_copias=num_copias+1))
-    db.session.commit()
 
 
 @app.route('/crear_liga', methods=["GET", "POST"])
@@ -278,7 +268,7 @@ def crear_liga():
         num_ligas = 0  # Si no hay ligas, asumimos que es 0
     if num_ligas > 10:
         flash("Has excedido el numero máximo de ligas.")
-        return redirect(url_for('perfil', id_usuario=current_user.id))
+        return redirect(url_for('perfil_usuario', id_usuario=current_user.id))
     else:
         nueva_liga = NuevaLiga()
         if nueva_liga.validate_on_submit():
@@ -326,11 +316,43 @@ def tirada_diaria():
         return redirect(url_for('perfil', id_usuario=current_user.id))
     else:
         lista_liga_carta = []
-        """
-        participa_liga = db.session.execute(select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)).fetchall()
-        for liga in participa_liga:
-            carta_aleatoria = db.session.scalars(select(Carta).order_by(func.random()).limit(1)).first() # ASI NO
-            lista_liga_carta.append((liga, carta_aleatoria))
-            # FALTA METER LA CARTA EN LA TABLA CARTA_LIGA
-        """
+        participa_liga = db.session.scalars(select(Participa_liga.id_liga).where(Participa_liga.id_usuario == current_user.id)).fetchall()
+        current_user.ultimatirada = date.today()
+        for liga_id in participa_liga:
+            carta_aleatoria = generar_carta_aleatoria(liga_id)
+            lista_liga_carta.append((db.session.get(Liga, liga_id), carta_aleatoria))
         return render_template("tirada_diaria.html", lista_liga_carta=lista_liga_carta)
+
+""" FUNCIONES AUXILIARES """
+
+def anyadir_usuario_liga(liga_id: int):
+    db.session.add(Participa_liga(id_liga=liga_id, id_usuario=current_user.id))
+    db.session.commit()
+    flash("Te has unido correctamente a la liga")
+    # Carta de bienvenida a la liga
+    generar_carta_aleatoria(liga_id)
+
+def generar_carta_aleatoria(liga_id: int):
+    # Generamos carta aleatoria
+    carta_aleatoria = db.session.scalars(select(Carta).where(Carta.rareza == rareza()).order_by(func.random()).limit(1)).first()
+    # Asociamos la carta a una liga
+    num_copias = db.session.scalars(select(Carta_liga.numero_copias)
+                                    .where(and_(Carta_liga.id_liga == liga_id, Carta_liga.id_usuario == current_user.id,
+                                                Carta_liga.id_jugador == carta_aleatoria.id_jugador))).first()
+    if num_copias is None:
+        num_copias = 0
+    db.session.add(Carta_liga(id_liga=liga_id, id_usuario=current_user.id, id_jugador=carta_aleatoria.id_jugador,
+                              numero_copias=num_copias + 1))
+    db.session.commit()
+    return carta_aleatoria
+
+def rareza():
+    num = random.randint(1, 100)
+    if 1 <= num and num >= 5: # 5%
+        return 'mitica'
+    elif 6 <= num and num >= 20: # 15%
+        return 'rara'
+    elif 21 <= num and num >= 50: # 30%
+        return 'infrecuente'
+    elif 51 <= num and num >= 100: # 50%
+        return 'comun'

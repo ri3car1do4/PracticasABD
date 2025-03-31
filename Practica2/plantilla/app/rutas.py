@@ -41,7 +41,8 @@ def sign_up():
         # Creo un objeto usuario
         # De aquellos campos que pueden ser nulos, hago .get en lugar de acceder
         # directamente.
-        usuario = Usuario(email=form.data["email"], cumple=form.data["cumple"], password_hash=generate_password_hash(form.data["password"]))
+        usuario = Usuario(email=form.data["email"], cumple=form.data["cumple"])
+        usuario.password = form.data["password"]
 
         # Lo intento añadir a la sesión. Si el email ya existe,
         # se genera una excepción 'IntegrityError'.
@@ -86,7 +87,7 @@ def sign_in():
         usuario = db.session.scalars(select(Usuario).where(Usuario.email == email).options(load_only(Usuario.email,
                                                                                                   Usuario.password_hash))).first()
         if usuario:
-            if check_password_hash(usuario.password_hash, password):
+            if usuario.check_password(password): # check_password_hash(usuario.password_hash, password):
                 login_user(usuario)
                 return redirect(url_for('tirada_diaria', email=email))
             else:
@@ -240,8 +241,8 @@ def unirse_liga(id_liga: int):
     else:
         password_liga = PasswordForm()
         if password_liga.validate_on_submit():
-            password = password_liga.data["password"]
-            if check_password_hash(liga.password_hash, password):
+            password = password_liga.password.data
+            if liga.check_password(password): # check_password_hash(liga.password_hash, password):
                 anyadir_usuario_liga(liga.id)
             else:
                 flash("Contraseña incorrecta")
@@ -273,7 +274,7 @@ def crear_liga():
         if nueva_liga.validate_on_submit():
             nombre_liga = nueva_liga.data["nombre"]
             num_max_participantes = nueva_liga.data["numero_participantes_maximo"]
-            password = hash(nueva_liga.data["password"])
+            password = generate_password_hash(nueva_liga.data["password"])
             liga = Liga(nombre=nombre_liga, numero_participantes_maximo=num_max_participantes, password_hash=password)
             db.session.add(liga)
             db.session.commit()

@@ -68,6 +68,21 @@ class Usuario(db.Model, UserMixin):
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     ultima_tirada: Mapped[date] = mapped_column(nullable=True)
 
+    # Con property, especificamos que password se puede acceder como un atributo,
+    # de la forma usuario.password. Es un getter encubierto
+    @property
+    def password(self):
+        raise AttributeError('No se puede leer el atributo password')
+
+    # Especificando `nombre_propiedad.setter`, definimos la función setter. Esta función
+    # se invoca siempre que asignemos al atributo un nuevo valor. En este caso, cuando hagamos usuario.password
+    @password.setter
+    def password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
+
 class Liga(db.Model):
     """
     Ligas de la aplicación
@@ -77,6 +92,21 @@ class Liga(db.Model):
     nombre: Mapped[str] = mapped_column(String(30), nullable=False)
     numero_participantes_maximo: Mapped[int] = mapped_column(Integer, nullable=False)
     password_hash: Mapped[str] = mapped_column(String, nullable=True)
+
+    # Con property, especificamos que password se puede acceder como un atributo,
+    # de la forma usuario.password. Es un getter encubierto
+    @property
+    def password(self):
+        raise AttributeError('No se puede leer el atributo password')
+
+    # Especificando `nombre_propiedad.setter`, definimos la función setter. Esta función
+    # se invoca siempre que asignemos al atributo un nuevo valor. En este caso, cuando hagamos usuario.password
+    @password.setter
+    def password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
 
 class Participa_liga(db.Model):
     """

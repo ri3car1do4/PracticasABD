@@ -16,7 +16,7 @@
     </button>
     <!-- Navbar Content (Add Items Here) -->
     <div class="collapse navbar-collapse" id="navbarNav">
-            {% if True %}
+            {% if not current_user.is_authenticated %}
                 <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link" href= {{ url_for('sign_in') }}>Acceder</a>
@@ -30,7 +30,7 @@
             {% else %}
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href= {{ url_for('perfil_usuario', id_usuario=1) }}>Mi Perfil</a>
+                        <a class="nav-link" href= {{ url_for('perfil_usuario', id_usuario=current_user.id) }}>Mi Perfil</a>
                     </li>
                 </ul>
                 <ul class="navbar-nav">

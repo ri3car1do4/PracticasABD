@@ -235,7 +235,7 @@ def unirse_liga(id_liga: int):
         flash("¡La liga está al máximo!")
         return redirect(url_for('mostrar_ligas'))
 
-    if liga.password_hash is '0':
+    if liga.password_hash is None:
         anyadir_usuario_liga(liga.id)
         return redirect(url_for('mostrar_ligas'))
     else:
@@ -274,8 +274,9 @@ def crear_liga():
         if nueva_liga.validate_on_submit():
             nombre_liga = nueva_liga.data["nombre"]
             num_max_participantes = nueva_liga.data["numero_participantes_maximo"]
-            password = generate_password_hash(nueva_liga.data["password"])
-            liga = Liga(nombre=nombre_liga, numero_participantes_maximo=num_max_participantes, password_hash=password)
+            liga = Liga(nombre=nombre_liga, numero_participantes_maximo=num_max_participantes)
+            if nueva_liga.password.data:
+                liga.password = nueva_liga.password.data
             db.session.add(liga)
             db.session.commit()
             db.session.add(Participa_liga(id_liga=liga.id, id_usuario=current_user.id))

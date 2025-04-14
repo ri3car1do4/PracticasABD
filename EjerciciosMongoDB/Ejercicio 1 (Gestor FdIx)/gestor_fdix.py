@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict, Any, List, Tuple
+from lorem_text import lorem
 
 import pymongo
 
@@ -8,40 +9,68 @@ class GestionFdIx:
     def __init__(self):
         cliente = pymongo.MongoClient("mongodb://localhost:27017/")
         db = cliente["fdix"]
-        coleccion_comments = db["comments"]
-        coleccion_movies = db["movies"]
-        coleccion_users = db["users"]
+        self.comments = db["comments"]
+        self.movies = db["movies"]
+        self.users = db["users"]
 
     def comentarios_aleatorios(self, n: int) -> List[Dict[str, Any]]:
         # Función que devuelva `n` comentarios aleatorios invocando al método anterior. Para ello, selecciona un
         # usuario y una película aleatoriamente, e introduce un comentario con texto aleatorio.
-        pass
+        comments = []
+        for i in range(n):
+            user = self.users.find_one({}, {"name": 1, "email": 1}) # Así coge el primero no aleatorio
+            movie = self.movies.find_one({}, {"_id": 1}) # Así coge el primero no aleatorio
+            comments.append(generar_comentario(user["name"], user["email"], movie["_id"], lorem.paragraph()))
+        return comments
 
     def insertar_comentarios_aleatorios(self, n) -> Dict[str, Any]:
         # Función para insertar una serie de comentarios aleatorios. Además, se actualiza el campo
         # `num_fdix_comments` de la colección `movies` de las películas correspondientes.
-        pass
+        comments = self.comentarios_aleatorios(n)
+        movie_id_counts = {}
+        for comment in comments:
+            movie_id = comment["movie_id"]
+            movie_id_counts[movie_id] = movie_id_counts.get(movie_id, 0) + 1
+        for movie_id, count in movie_id_counts.items():
+            self.movies.update_one({"_id": movie_id}, {"$inc": {"num_fdix_comments": count}})
+        self.comments.insert_many(comments)
+        return {}
 
-    def borrar_comentarios(self, email: str, fecha_inicial: datetime.datetime,
-                           fecha_final: datetime.datetime) -> Dict[str, Any]:
+    def borrar_comentarios(self, email: str, fecha_inicial: datetime.date,
+                           fecha_final: datetime.date) -> Dict[str, Any]:
         # Función para borrar todos los comentarios de un usuario dado su email en un rango de fechas. Además se
         # actualiza el campo `num_fdix_comments` de la colección `movies` de las películas correspondientes.
-        pass
+        comments = self.comments.find({"email": email, "date": {"$gte": fecha_inicial, "$lte": fecha_final}})
+        movie_id_counts = {}
+        for comment in comments:
+            movie_id = comment["movie_id"]
+            movie_id_counts[movie_id] = movie_id_counts.get(movie_id, 0) + 1
+        for movie_id, count in movie_id_counts.items():
+            self.movies.update_one({"_id": movie_id}, {"$inc": {"num_fdix_comments": -count}})
+        comment_ids = [comment["_id"] for comment in comments]
+        self.comments.delete_many({"_id": {"$in": comment_ids}})
+        return {}
 
     def actualizar_nombre(self, email: str, nombre_nuevo: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # Función que cambie el nombre asociado a un email. Para ello, hay que actualizar tanto la colección de
         # usuarios como la de comentarios.
-        pass
+        user = self.users.find_one_and_update({"email": email}, {"$set": {"name": nombre_nuevo}}, return_document=True)
+        self.comments.update_many({"email": email}, {"$set": {"name": nombre_nuevo}})
+        comment = self.comments.find_one({"email": email, "name": nombre_nuevo})
+        return user, comment
 
     def nuevo_lenguaje(self, titulo: str, idioma: str):
         # Función que, dado el título de una película, añada un nuevo lenguaje a la lista de lenguajes si no lo tenía
         # ya disponible previamente.
-        pass
+        self.movies.update_one({"title": titulo}, {"$addToSet": {"languages": idioma}})
 
     def reemplazar_comentario(self, id_comentario: str):
         # Dado el id de un comentario, reemplaza el comentario especificado por uno generado aleatoriamente (utilizando
         # la función `generar_comentario`). Comprueba que efectivamente se ha llevado a cabo el reemplazo.
-        pass
+        user = self.users.find_one({}, {"name": 1, "email": 1})  # Así coge el primero no aleatorio
+        movie = self.movies.find_one({}, {"_id": 1})  # Así coge el primero no aleatorio
+        comment = generar_comentario(user["name"], user["email"], movie["_id"], lorem.paragraph())
+        self.comments.replace_one({"_id": id_comentario}, comment)
 
     # CONSULTAS
     def encontrar_peliculas_idioma(self, n: int, lista_idiomas: List[str]) -> List[Dict[str, Any]]:
@@ -89,8 +118,18 @@ def generar_comentario(name: str, email: str,
                        movie_id: str, text: str) -> Dict[str, Any]:
     # Función independiente de la clase `GestionFdIx` que devuelva un comentario en formato `JSON`, utilizando como
     # fecha la fecha de hoy (`datetime.datetime.today()`)
-    pass
+    return {
+        "name": name,
+        "email": email,
+        "movie_id": movie_id,
+        "text": text,
+        "date": datetime.today()
+    }
+
 
 
 if __name__ == "__main__":
     gestion_fdix = GestionFdIx()
+    print(gestion_fdix.actualizar_nombre("sean_bean@gameofthron.es", "Ned Starkn´t"))
+    gestion_fdix.nuevo_lenguaje("The Perils of Pauline", "Spanish")
+    # gestion_fdix.reemplazar_comentario("573a1390f29313caabcd5b9a")

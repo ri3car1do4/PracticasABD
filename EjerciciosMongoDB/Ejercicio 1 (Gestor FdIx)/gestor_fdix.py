@@ -1,5 +1,7 @@
 from datetime import datetime
 from typing import Dict, Any, List, Tuple
+
+from bson import ObjectId
 from lorem_text import lorem
 
 import pymongo
@@ -18,8 +20,10 @@ class GestionFdIx:
         # usuario y una película aleatoriamente, e introduce un comentario con texto aleatorio.
         comments = []
         for i in range(n):
-            user = self.users.find_one({}, {"name": 1, "email": 1}) # Así coge el primero no aleatorio
-            movie = self.movies.find_one({}, {"_id": 1}) # Así coge el primero no aleatorio
+            # Usuario aleatorio
+            user = list(self.users.aggregate([{"$sample": {"size": 1}}, {"$project": {"name": 1, "email": 1}}]))[0]
+            # Película aleatoria
+            movie = list(self.users.aggregate([{"$sample": {"size": 1}}, {"$project": {"_id": 1}}]))[0]
             comments.append(generar_comentario(user["name"], user["email"], movie["_id"], lorem.paragraph()))
         return comments
 
@@ -67,26 +71,39 @@ class GestionFdIx:
     def reemplazar_comentario(self, id_comentario: str):
         # Dado el id de un comentario, reemplaza el comentario especificado por uno generado aleatoriamente (utilizando
         # la función `generar_comentario`). Comprueba que efectivamente se ha llevado a cabo el reemplazo.
-        user = self.users.find_one({}, {"name": 1, "email": 1})  # Así coge el primero no aleatorio
-        movie = self.movies.find_one({}, {"_id": 1})  # Así coge el primero no aleatorio
+        # Usuario aleatorio
+        user = list(self.users.aggregate([{"$sample": {"size": 1}}, {"$project": {"name": 1, "email": 1}}]))[0]
+        # Película aleatoria
+        movie = list(self.users.aggregate([{"$sample": {"size": 1}}, {"$project": {"_id": 1}}]))[0]
         comment = generar_comentario(user["name"], user["email"], movie["_id"], lorem.paragraph())
-        self.comments.replace_one({"_id": id_comentario}, comment)
+        self.comments.replace_one({"_id": ObjectId(id_comentario)}, comment)
 
     # CONSULTAS
     def encontrar_peliculas_idioma(self, n: int, lista_idiomas: List[str]) -> List[Dict[str, Any]]:
         # Devuelve las `n` últimas películas que estén disponibles en una lista de idiomas dado, ordenadas por fecha
         # de estreno. Esquema: (titulo, idiomas, fecha).
-        pass
+        return list(self.movies.find({"languages": {"$all": lista_idiomas}}, {"title": 1, "languages": 1,
+                "released": 1, "_id": 0}).sort({"released": -1}).limit(n))
 
     def mejor_valoradas(self, i: int, j: int) -> List[Dict[str, Any]]:
         # Encuentra las películas en las posiciones `i` y `j` (inclusive), ordenadas de forma descendente según las
         # puntuaciones de `imdb`. Esquema: (titulo, rating).
-        pass
+        return list(self.movies.find({"imdb.rating": {"$ne": None}}, {"title": 1, "imdb.rating": 1, "_id": 0})
+                                    .sort({"imdb.rating": -1}).skip(i-1).limit(j-i+1))
+
+    def peliculas_populares(self) -> List[Dict[str, Any]]:
+        # Encuentra películas que tienen un rating de más de 4 estrellas y con más de 1000 reseñas rotten-tomatoes
+        # según los usuarios, ordenados por el rating, seguido del número de reseñas de forma descendiente.
+        # Esquema: (titulo, estrellas, numeroValoraciones)
+        return list(self.movies.find({"tomatoes.viewer.rating": {"$gt": 4}, "tomatoes.viewer.numReviews": {"$gt": 1000}},
+                                    {"title": 1, "tomatoes.viewer.rating": 1, "tomatoes.viewer.numReviews": 1, "_id": 0})
+                                    .sort({"tomatoes.viewer.rating": -1, "tomatoes.viewer.numReviews": -1}))
 
     def ganar_categoria(self) -> List[Dict[str, Any]]:
         # Encuentras las películas que hayan ganado en todas las categorías en las que ha estado nominada, ordenada
         # por número de premios de forma descendente y por `_id`. Esquema: (titulo, numeroPremios)
-        pass
+        return list(self.movies.find({"$expr": {"$gte": ["$awards.wins", "$awards.nominations"]}, "awards.wins": {"$gt": 0}}
+                                     , {"title": 1, "awards.wins": 1, "_id": 0}).sort({"awards.wins": -1, "_id": -1}))
 
     def mayor_diferencia_ratings(self, anyo: int) -> List[Dict[str, Any]]:
         # Encuentra las películas que se han estrenado en un año dado en las que la diferencia entre el rating del
@@ -94,7 +111,11 @@ class GestionFdIx:
         # correspondiente tiene un rating asociado a críticos y a usuarios. Para ello, se utiliza la operación
         # `{"exists": True}`. También hay que utilizar las operaciones `$abs` y `$substract`. Esquema: (titulo,
         # ratingPublico, ratingCriticos, diferencia)
-        pass
+        return list(self.movies.find({"$expr": {"$and": [{"$eq": [{"$year": "$released"}, anyo]},
+                                    {"$gt": ["tomatoes.viewer.rating", "tomatoes.critic.rating"]}]},
+                                    "tomatoes.critic.rating": {"$exists": True}, "tomatoes.viewer.rating": {"$exists": True}},
+                                     {"title": 1, "tomatoes.critic.rating": 1, "tomatoes.viewer.rating": 1, "_id": 0})
+                    )
 
     # ÍNDICES
     # AGREGACIONES
@@ -130,6 +151,10 @@ def generar_comentario(name: str, email: str,
 
 if __name__ == "__main__":
     gestion_fdix = GestionFdIx()
-    print(gestion_fdix.actualizar_nombre("sean_bean@gameofthron.es", "Ned Starkn´t"))
-    gestion_fdix.nuevo_lenguaje("The Perils of Pauline", "Spanish")
-    # gestion_fdix.reemplazar_comentario("573a1390f29313caabcd5b9a")
+    # print(gestion_fdix.actualizar_nombre("sean_bean@gameofthron.es", "Ned Starkn´t"))
+    # gestion_fdix.nuevo_lenguaje("The Perils of Pauline", "Spanish")
+    # gestion_fdix.reemplazar_comentario("5a9427648b0beebeb69579cc")
+    # print(gestion_fdix.encontrar_peliculas_idioma(10, ["English", "French"]))
+    # print(gestion_fdix.mejor_valoradas(10, 20)) # NO SÉ
+    # print(gestion_fdix.peliculas_populares())
+    # print(gestion_fdix.ganar_categoria())

@@ -111,12 +111,14 @@ class GestionFdIx:
         # correspondiente tiene un rating asociado a críticos y a usuarios. Para ello, se utiliza la operación
         # `{"exists": True}`. También hay que utilizar las operaciones `$abs` y `$substract`. Esquema: (titulo,
         # ratingPublico, ratingCriticos, diferencia)
-        return list(self.movies.find({"$expr": {"$and": [{"$eq": [{"$year": "$released"}, anyo]},
-                                    {"$gt": ["tomatoes.viewer.rating", "tomatoes.critic.rating"]}]},
-                                    "tomatoes.critic.rating": {"$exists": True}, "tomatoes.viewer.rating": {"$exists": True}},
-                                     {"title": 1, "tomatoes.critic.rating": 1, "tomatoes.viewer.rating": 1, "_id": 0})
+        return list(self.movies.aggregate([{"$match": {"$expr": {"$and": [{"$eq": [{"$year": "$released"}, anyo]},
+                                            {"$gt": ["$tomatoes.viewer.rating", "$tomatoes.critic.rating"]}]},
+                                            "tomatoes.critic.rating": {"$exists": True}, "tomatoes.viewer.rating": {"$exists": True}}},
+                                           {"$addFields": {"diferencia": {"$abs": {"$subtract": ["$tomatoes.critic.rating", "$tomatoes.viewer.rating"]}}}},
+                                           {"$project": {"title": 1, "tomatoes.critic.rating": 1, "tomatoes.viewer.rating": 1, "diferencia": 1, "_id": 0}},
+                                           {"$sort": {"diferencia": -1}}
+                                           ])
                     )
-
     # ÍNDICES
     # AGREGACIONES
     def numero_peliculas_por_categoria(self) -> Dict[str, int]:
@@ -124,15 +126,22 @@ class GestionFdIx:
         # número de elementos de manera ascendente. En lugar de devolver la información en una lista de diccionarios,
         # combina toda la información en un único diccionario, donde la clave corresponde a la categoría de producción;
         # y el valor, al número total de películas en esa categoría. Esquema: {categoria: numeroPeliculas}
-        pass
+        categorias = self.movies.aggregate([{"$group": {"_id": "$type", "conteo": {"$sum": 1}}},
+                                            {"$sort": {"conteo": 1}}])
+        return {categoria["_id"]: categoria["conteo"] for categoria in categorias}
 
     def numero_peliculas_genero(self, genero: str) -> int:
         # Devuelve el número de elementos que hay asociados a un género de película dado. Esquema: numeroPeliculas
-        pass
+        result = list(self.movies.aggregate([{"$match": {"genres": genero}}, {"$group": {"_id": None, "conteo": {"$sum": 1}}},
+                               {"$project": {"conteo": 1, "_id": 0}}]))
+        return result[0]["conteo"] if result else 0
 
     def han_comentado(self, titulo: str) -> List[Dict[str, str]]:
         # Devuelve la lista de usuarios (`email` y `nombre`) que han comentado en una película dada. Esquema: (email, nombre)
-        pass
+        movie = list(self.movies.find({"title": titulo}, {"_id": 1}))[0]
+        return list(self.comments.aggregate([{"$match": {"movie_id": movie["_id"]}}, {"$lookup": {"from": "users",
+                                            "localField": "email", "foreignField": "email", "as": "han_comentado"}},
+                                             {"$project": {"name": 1, "email": 1, "_id": 0}}]))
 
 
 def generar_comentario(name: str, email: str,
@@ -155,6 +164,9 @@ if __name__ == "__main__":
     # gestion_fdix.nuevo_lenguaje("The Perils of Pauline", "Spanish")
     # gestion_fdix.reemplazar_comentario("5a9427648b0beebeb69579cc")
     # print(gestion_fdix.encontrar_peliculas_idioma(10, ["English", "French"]))
-    # print(gestion_fdix.mejor_valoradas(10, 20)) # NO SÉ
+    # print(gestion_fdix.mejor_valoradas(10, 20))
     # print(gestion_fdix.peliculas_populares())
     # print(gestion_fdix.ganar_categoria())
+    # print(gestion_fdix.mayor_diferencia_ratings(2015)
+    # print(gestion_fdix.numero_peliculas_por_categoria())
+    print(gestion_fdix.han_comentado("The Four Horsemen of the Apocalypse"))

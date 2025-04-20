@@ -24,14 +24,17 @@ def mostrar_ediciones():
     # Numero de elementos por pagina
     elementos_por_pagina = 5
 
-    # AQUI VA VUESTRO CODIGO
+    # Calcular desde qué documento empezar
+    skip = (pagina - 1) * elementos_por_pagina
+
+    total_elementos = mongo.db.festivales.count_documents({})
+    festivales = list(mongo.db.festivales.find({}, {"_id": 0}).skip(skip).limit(elementos_por_pagina))
 
     # Descomentad cuando cargueis la informacion
-    # paginacion = render_pagination(pagina, elementos_por_pagina, total_elementos, 'mostrar_ediciones')
+    paginacion = render_pagination(pagina, elementos_por_pagina, total_elementos, 'mostrar_ediciones')
 
-    # return render_template("mostrar_ediciones.html", festivales=festivales,
-    #                        pagination=paginacion, pagina=pagina)
-    abort(404)
+    return render_template("mostrar_ediciones.html", festivales=festivales,
+                            pagination=paginacion, pagina=pagina)
 
 
 @app.route("/edicion/<int:anyo>")
@@ -39,7 +42,9 @@ def mostrar_festival(anyo: int):
     # Mostrar la lista de participaciones, dado un anyo.
     # Devuelve un error 404 si no se encuentra presente ese anyo.
     # Como respuesta, renderiza el template "mostrar_actuaciones_edicion.html"
-    abort(404)
+    festival = mongo.db.festivales.find_one_or_404({"anyo": anyo}, {"pais": 1, "ciudad": 1, "concursantes": 1, "_id": 0})
+    return render_template("mostrar_actuaciones_edicion.html", anyo=anyo, pais_organizador=festival["pais"],
+                             ciudad=festival["ciudad"], participaciones=festival["concursantes"])
 
 
 @app.route('/jugar')
@@ -91,17 +96,41 @@ def mostrar_actuaciones_pais(id_pais: str):
     # filtrar los elementos que se corresponden a la pagina ("pagina") teniendo en cuenta el numero de elementos
     # que hay en cada pagina ("elementos_por_pagina")
 
+    # Pagina actual de resultados
     pagina = int(request.args.get('page', 1))
+
+    # Numero de elementos por pagina
     elementos_por_pagina = 10
 
-    # AQUI VA VUESTRO CODIGO
+    # Calcular desde qué documento empezar
+    skip = (pagina - 1) * elementos_por_pagina
 
-    # Descomentad cuando cargueis la informacion
-    # paginacion = render_pagination(pagina, elementos_por_pagina, total_elementos, 'mostrar_actuaciones_pais', id_pais=id_pais)
+    total_elementos = mongo.db.festivales.count_documents({"concursantes.id_pais": id_pais})
+    nombre_pais = mongo.db.festivales.find_one_or_404({"concursantes": {"$elemMatch": {"id_pais": id_pais}}},
+                                                      {"_id": 0, "concursantes.pais.$": 1})["concursantes"][0]["pais"]
+    participaciones = mongo.db.festivales.aggregate([{"$unwind": "$concursantes"},
+                                                {"$match": {"concursantes.id_pais": id_pais}},
+                                                {"$sort": {"anyo": -1}},
+                                                {"$skip": skip},
+                                                {"$limit": elementos_por_pagina},
+                                                {"$project": {
+                                                    "_id": 0,
+                                                    "anyo": 1,
+                                                    "ciudad": 1,
+                                                    "pais_organizador": "$pais",
+                                                    "artista": "$concursantes.artista",
+                                                    "cancion": "$concursantes.cancion",
+                                                    "resultado": "$concursantes.resultado",
+                                                    "puntuacion": "$concursantes.puntuacion",
+                                                    "url_youtube": "$concursantes.url_youtube"
+                                                }}
+                                            ])
 
-    # return render_template("mostrar_actuaciones_pais.html", pais=nombre_pais, participaciones=participaciones,
-    #                        pagination=paginacion, pagina=pagina)
-    abort(404)
+
+    paginacion = render_pagination(pagina, elementos_por_pagina, total_elementos, 'mostrar_actuaciones_pais', id_pais=id_pais)
+
+    return render_template("mostrar_actuaciones_pais.html", pais=nombre_pais, participaciones=participaciones,
+                            pagination=paginacion, pagina=pagina)
 
 
 @app.route("/upload_contest", methods=["POST"])

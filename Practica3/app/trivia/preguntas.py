@@ -5,6 +5,7 @@ import random
 from typing import List
 from abc import ABC, abstractmethod
 from .operaciones_coleccion import OperacionesEurovision
+from .. import mongo
 
 
 # Clases para encapsular las preguntas y respuestas generadas aleatoriamente
@@ -68,12 +69,17 @@ class PrimerAnyoParticipacion(Trivia):
     """
 
     def __init__(self, parametros: OperacionesEurovision):
-        self._opciones_invalidas = None
-        self._respuesta = None
+        self._pais = parametros.paises_participantes_aleatorios(1)[0]
+        self._respuesta = list(parametros.agregacion([{"$match": {"concursantes.pais": self._pais}},
+                                                 {"$sort": {"anyo": 1}},
+                                                 {"$limit": 1},
+                                                 {"$project": {"_id": 0, "anyo": 1}}
+                                                ]))[0]["anyo"]
+        self._opciones_invalidas = parametros.anyo_aleatorio(3)
 
     @property
     def pregunta(self) -> str:
-        return f"¿En qué año participó por primera vez {self.pais}?"
+        return f"¿En qué año participó por primera vez {self._pais}?"
 
     @property
     def opciones_invalidas(self) -> List[str]:
@@ -98,9 +104,11 @@ class CancionPais(Trivia):
 
     def __init__(self, parametros: OperacionesEurovision):
         # Obtenemos una participacion para la respuesta
-        self._respuesta = None
-        self._cancion = None
-        self._opciones_invalidas = None
+        self._cancion = parametros.participacion_aleatoria(1)[0]["cancion"]
+        self._respuesta = list(parametros.agregacion([{"$match": {"concursantes.cancion": self._cancion}},
+                                                      {"$project": {"_id": 0, "pais": 1}}
+                                                     ]))[0]["pais"]
+        self._opciones_invalidas = [item["pais"] for item in parametros.participacion_aleatoria(3)]
 
     @property
     def pregunta(self) -> str:
@@ -132,9 +140,11 @@ class MejorClasificacion(Trivia):
     deben haber participado el mismo anyo.
     """
     def __init__(self, parametros: OperacionesEurovision):
-        self._anyo = None
+        self._anyo = parametros.anyo_aleatorio(1)[0]
         self._opciones_invalidas = None
-        self._respuesta = None
+        self._respuesta = parametros.agregacion([{"$match": {"anyo": 1960}}, {"$unwind": "$concursantes"}, {"$limit": 1},
+                                                 {"$project": {"_id": 0, "pais": "$concursantes.pais", "cancion": "$concursantes.cancion"}}
+                                                ])
 
     @property
     def pregunta(self) -> str:

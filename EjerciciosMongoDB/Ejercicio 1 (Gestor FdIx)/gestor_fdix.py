@@ -138,10 +138,11 @@ class GestionFdIx:
 
     def han_comentado(self, titulo: str) -> List[Dict[str, str]]:
         # Devuelve la lista de usuarios (`email` y `nombre`) que han comentado en una película dada. Esquema: (email, nombre)
-        movie = list(self.movies.find({"title": titulo}, {"_id": 1}))[0]
-        return list(self.comments.aggregate([{"$match": {"movie_id": movie["_id"]}}, {"$lookup": {"from": "users",
-                                            "localField": "email", "foreignField": "email", "as": "han_comentado"}},
-                                             {"$project": {"name": 1, "email": 1, "_id": 0}}]))
+        return list(self.movies.aggregate([{"$match": {"title": titulo}},
+                                           {"$lookup": {"from": "comments", "localField": "_id", "foreignField": "movie_id", "as": "comentarios"}},
+                                           {"$unwind": "$comentarios"},
+                                           {"$project": {"name": "$comentarios.name", "email": "$comentarios.email", "_id": 0}}
+                                          ]))
 
 
 def generar_comentario(name: str, email: str,

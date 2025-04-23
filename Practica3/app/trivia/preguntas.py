@@ -75,7 +75,7 @@ class PrimerAnyoParticipacion(Trivia):
                                                  {"$limit": 1},
                                                  {"$project": {"_id": 0, "anyo": 1}}
                                                 ]))[0]["anyo"]
-        self._opciones_invalidas = parametros.anyo_aleatorio(3)
+        self._opciones_invalidas = parametros.anyo_aleatorio(3, [{"$match": {"anyo": {"$ne": self._respuesta}}}])
 
     @property
     def pregunta(self) -> str:
@@ -108,7 +108,7 @@ class CancionPais(Trivia):
         self._respuesta = list(parametros.agregacion([{"$match": {"concursantes.cancion": self._cancion}},
                                                       {"$project": {"_id": 0, "pais": 1}}
                                                      ]))[0]["pais"]
-        self._opciones_invalidas = [item["pais"] for item in parametros.participacion_aleatoria(3)]
+        self._opciones_invalidas = [item["pais"] for item in parametros.participacion_aleatoria(3, [{"$match": {"concursantes.pais": {"$ne": self._respuesta}}}])]
 
     @property
     def pregunta(self) -> str:
@@ -141,10 +141,16 @@ class MejorClasificacion(Trivia):
     """
     def __init__(self, parametros: OperacionesEurovision):
         self._anyo = parametros.anyo_aleatorio(1)[0]
-        self._opciones_invalidas = None
-        self._respuesta = parametros.agregacion([{"$match": {"anyo": 1960}}, {"$unwind": "$concursantes"}, {"$limit": 1},
-                                                 {"$project": {"_id": 0, "pais": "$concursantes.pais", "cancion": "$concursantes.cancion"}}
-                                                ])
+        result = list(parametros.agregacion([{"$match": {"anyo": self._anyo}}, {"$unwind": "$concursantes"}, {"$limit": 1},
+                                             {"$project": {"_id": 0, "pais": "$concursantes.pais", "cancion": "$concursantes.cancion"}}
+                                            ]))[0]
+        self._respuesta = (result["pais"], result["cancion"])
+        results = parametros.participacion_aleatoria(3, [{"$match": {"$and": [{"anyo": self._anyo},
+                                                                                       {"concursantes.pais": {
+                                                                                            "$ne" : result["pais"]}}]
+                                                                                       }}
+                                                                            ])
+        self._opciones_invalidas = [ (result["pais"], result["cancion"]) for result in results ]
 
     @property
     def pregunta(self) -> str:
@@ -170,10 +176,21 @@ class MejorMediaPuntos(Trivia):
     IMPORTANTE: la solucion debe ser unica.
     """
     def __init__(self, parametros: OperacionesEurovision):
-        self._anyo_inicial = None
-        self._anyo_final = None
-        self._opciones_invalidas = None
-        self._respuesta = None
+        self._anyo_inicial = parametros.anyo_aleatorio(1, [{"$match": {"anyo": {"$lt": 2022}}}])[0]
+        self._anyo_final = parametros.anyo_aleatorio(1, [{"$match": {"anyo": {"$gt": self._anyo_inicial}}}])[0]
+        self._respuesta = list(parametros.agregacion([
+            {"$match": {"$and": [{"anyo": {"$gte": self._anyo_inicial}}, {"anyo": {"$lte": self._anyo_final}}]}},
+            {"$unwind": "$concursantes"},
+            {"$group": {"_id": "$concursantes.pais", "media": {"$avg": "$concursantes.puntuacion"}}},
+            {"$sort": {"media": -1}}, {"$limit": 1}
+        ]))[0]["_id"]
+        self._opciones_invalidas = [item["_id"] for item in list(parametros.agregacion([
+            {"$match": {"$and": [{"anyo": {"$gte": self._anyo_inicial}}, {"anyo": {"$lte": self._anyo_final}}]}},
+            {"$unwind": "$concursantes"},
+            {"$group": {"_id": "$concursantes.pais", "media": {"$avg": "$concursantes.puntuacion"}}},
+            {"$match": {"_id": {"$ne": self._respuesta}}},
+            {"$sample": {"size": 3}}
+        ]))]
 
     @property
     def pregunta(self) -> str:

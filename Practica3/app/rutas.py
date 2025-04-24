@@ -83,7 +83,19 @@ def generar_quiz():
     # Una vez el formulario se valide correctamente, debemos redireccionar a la funcion de vista
     # 'jugar_quiz', que debe recibir la lista de anyos (variable "anyos"), la lista de paises (variable "paises")
     # y el nombre del formulario (variable "nombre"). Estas variables se leen con request.args.get
-    abort(404)
+    result = list(mongo.db.festivales.aggregate([{"$project": {"_id": 0, "anyo": 1}}, {"$sort": {"anyo": -1}}]))
+    anyos = [item["anyo"] for item in result]
+    result = list(mongo.db.festivales.aggregate([{"$unwind": "$concursantes"}, {"$group": {"_id": "$concursantes.pais"}},
+                                                 {"$sort": {"_id": 1}}]))
+    paises =  [item["_id"] for item in result]
+    form = GenerarQuizForm(anyos, paises)
+
+    # Valido el formulario (solo para POST)
+    if form.validate_on_submit():
+        return redirect(url_for("jugar_quiz", anyos=form.seleccion_anyos.data,
+                 paises=form.seleccion_paises.data, nombre=form.nombre))
+
+    return render_template("crear_quiz.html", form=form)
 
 
 @app.route("/pais/<id_pais>")
@@ -151,7 +163,6 @@ def guardar_concurso():
     # data es el diccionario con la informacion
     data = request.get_json()
 
-    # AQUI VA VUESTRO CODIGO
 
     # En este caso, no hacemos un redirect directamente porque desde JS no se reconoce
     # bien. En su lugar, devolvemos la respuesta en un json

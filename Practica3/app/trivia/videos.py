@@ -56,9 +56,6 @@ class PaisActuacion(TriviaVideo):
         self._opciones_invalidas = parametros.paises_participantes_aleatorios(3, [
             {"$match": {"concursantes.pais": {"$ne": self._respuesta}}}
         ])
-        print(self._url)
-        print(self._respuesta)
-        print(self._opciones_invalidas)
 
     @property
     def url(self) -> str:

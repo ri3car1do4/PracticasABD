@@ -1,7 +1,7 @@
 """
 Módulo de Python que contiene las rutas
 """
-import datetime
+from datetime import datetime, timezone
 from flask import current_app as app, render_template, redirect, url_for, flash, abort, request
 from .formularios import GenerarQuizForm
 from . import mongo
@@ -60,7 +60,7 @@ def jugar_quiz():
     anyos = request.args.getlist("anyos", type=int)
     paises = request.args.getlist("paises")
     nombre = request.args.get("nombre", None)
-    num_preguntas = 1
+    num_preguntas = 5
 
     preguntas_aleatorias = generar_n_preguntas_aleatoriamente(num_preguntas, anyos, paises, mongo.db["festivales"])
 
@@ -93,7 +93,7 @@ def generar_quiz():
     # Valido el formulario (solo para POST)
     if form.validate_on_submit():
         return redirect(url_for("jugar_quiz", anyos=form.seleccion_anyos.data,
-                 paises=form.seleccion_paises.data, nombre=form.nombre))
+                 paises=form.seleccion_paises.data, nombre=form.nombre.data))
 
     return render_template("crear_quiz.html", form=form)
 
@@ -163,6 +163,15 @@ def guardar_concurso():
     # data es el diccionario con la informacion
     data = request.get_json()
 
+    # Borramos el campo "seleccionado" de cada pregunta
+    for pregunta in data["preguntas"]:
+        del pregunta["seleccionado"]
+
+    # Añadimos la fecha de creaión en el campo "creacion"
+    data["creacion"] = datetime.now(timezone.utc)
+
+    # Guardamos el quiz en la BD
+    mongo.db.quizzes.insert_one(data)
 
     # En este caso, no hacemos un redirect directamente porque desde JS no se reconoce
     # bien. En su lugar, devolvemos la respuesta en un json
@@ -183,12 +192,22 @@ def mostrar_quizzes():
     # Numero de elementos por pagina
     elementos_por_pagina = 20
 
-    # Descomentad cuando cargueis la informacion
-    # paginacion = render_pagination(pagina, elementos_por_pagina, total_elementos, 'mostrar_quizzes')
+    # Calcular desde qué documento empezar
+    skip = (pagina - 1) * elementos_por_pagina
 
-    # return render_template("listar_quizzes.html", quizzes=quizzes,
-    #                        pagination=paginacion, pagina=pagina)
-    abort(404)
+    total_elementos = mongo.db.quizzes.count_documents({})
+    quizzes = mongo.db.quizzes.aggregate([{"$sort": {"creacion": -1}},
+                                          {"$skip": skip},
+                                          {"$limit": elementos_por_pagina},
+                                          {"$project": {
+                                            "creacion": 1
+                                          }}
+                                        ])
+
+    paginacion = render_pagination(pagina, elementos_por_pagina, total_elementos, 'mostrar_quizzes')
+
+    return render_template("listar_quizzes.html", quizzes=quizzes,
+                            pagination=paginacion, pagina=pagina)
 
 
 @app.route("/jugar/<nombre_quiz>")
@@ -197,4 +216,6 @@ def jugar_quiz_personalizado(nombre_quiz: str):
     # Primero, hay que comprobar un quiz con ese nombre en la coleccion
     # "quizzes". En tal caso, cargamos toda la informacion y renderizamos "juego.html".
     # Si no es asi, lanzamos un error 404.
-    abort(404)
+    preguntas = mongo.db.quizzes.find_one_or_404({"_id": nombre_quiz}, {"preguntas": 1})
+
+    return render_template("juego.html", preguntas=preguntas, guardable=False)

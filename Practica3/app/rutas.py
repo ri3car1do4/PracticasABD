@@ -60,7 +60,7 @@ def jugar_quiz():
     anyos = request.args.getlist("anyos", type=int)
     paises = request.args.getlist("paises")
     nombre = request.args.get("nombre", None)
-    num_preguntas = 5
+    num_preguntas = 10
 
     preguntas_aleatorias = generar_n_preguntas_aleatoriamente(num_preguntas, anyos, paises, mongo.db["festivales"])
 

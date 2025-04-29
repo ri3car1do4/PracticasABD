@@ -105,10 +105,16 @@ class CancionPais(Trivia):
     def __init__(self, parametros: OperacionesEurovision):
         # Obtenemos una participacion para la respuesta
         self._cancion = parametros.participacion_aleatoria(1)[0]["cancion"]
-        self._respuesta = list(parametros.agregacion([{"$match": {"concursantes.cancion": self._cancion}},
-                                                      {"$project": {"_id": 0, "pais": 1}}
-                                                     ]))[0]["pais"]
-        self._opciones_invalidas = [item["pais"] for item in parametros.participacion_aleatoria(3, [{"$match": {"concursantes.pais": {"$ne": self._respuesta}}}])]
+        self._respuesta = list(parametros.agregacion([
+            {"$unwind": "$concursantes"},
+            {"$match": {"concursantes.cancion": self._cancion}},
+            {"$project": {"_id": 0, "pais": "$concursantes.pais"}}
+        ]))[0]["pais"]
+        self._opciones_invalidas = parametros.participacion_aleatoria(3, [
+            {"$match": {"concursantes.pais": {"$ne": self._respuesta}}},
+            {"$group": {"_id": "$concursantes.pais"}},
+            {"$addFields": {"concursantes": "$_id"}}
+        ])
 
     @property
     def pregunta(self) -> str:
@@ -178,19 +184,22 @@ class MejorMediaPuntos(Trivia):
     def __init__(self, parametros: OperacionesEurovision):
         self._anyo_inicial = parametros.anyo_aleatorio(1, [{"$match": {"anyo": {"$lt": 2022}}}])[0]
         self._anyo_final = parametros.anyo_aleatorio(1, [{"$match": {"anyo": {"$gt": self._anyo_inicial}}}])[0]
-        self._respuesta = list(parametros.agregacion([
-            {"$match": {"$and": [{"anyo": {"$gte": self._anyo_inicial}}, {"anyo": {"$lte": self._anyo_final}}]}},
-            {"$unwind": "$concursantes"},
+        self._respuesta = parametros.participacion_aleatoria(1, [
+            {"$match": {"$and": [{"anyo": {"$gte": 2019}}, {"anyo": {"$lte": 2022}}]}},
             {"$group": {"_id": "$concursantes.pais", "media": {"$avg": "$concursantes.puntuacion"}}},
-            {"$sort": {"media": -1}}, {"$limit": 1}
-        ]))[0]["_id"]
-        self._opciones_invalidas = [item["_id"] for item in list(parametros.agregacion([
+            {"$sort": {"media": -1}},
+            {"$addFields": {"concursantes": "$_id"}},
+        ])[0]
+        print(self._respuesta)
+        self._opciones_invalidas = parametros.participacion_aleatoria(3, [
             {"$match": {"$and": [{"anyo": {"$gte": self._anyo_inicial}}, {"anyo": {"$lte": self._anyo_final}}]}},
-            {"$unwind": "$concursantes"},
-            {"$group": {"_id": "$concursantes.pais", "media": {"$avg": "$concursantes.puntuacion"}}},
-            {"$match": {"_id": {"$ne": self._respuesta}}},
-            {"$sample": {"size": 3}}
-        ]))]
+            {"$group": {
+                "_id": "$concursantes.pais",
+                "media": {"$avg": "$concursantes.puntuacion"}
+            }},
+            {"$addFields": {"concursantes": "$_id"}},
+            {"$match": {"concursantes": {"$ne": self._respuesta}}}
+        ])
 
     @property
     def pregunta(self) -> str:

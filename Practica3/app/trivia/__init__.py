@@ -9,7 +9,7 @@ from .preguntas import CancionPais, Trivia, PrimerAnyoParticipacion, MejorClasif
 
 # Esta es la lista de preguntas posibles de trivia. Segun vayais resolviendolas,
 # id incluyendolas en esta lista.
-_preguntas_posibles = [PrimerAnyoParticipacion, CancionPais, MejorClasificacion, MejorMediaPuntos,
+_preguntas_posibles = [ PrimerAnyoParticipacion, CancionPais, MejorClasificacion, MejorMediaPuntos,
                          PaisActuacion, NombreCancion, InterpreteCancion ]
 
 

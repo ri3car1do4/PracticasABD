@@ -70,12 +70,18 @@ class PrimerAnyoParticipacion(Trivia):
 
     def __init__(self, parametros: OperacionesEurovision):
         self._pais = parametros.paises_participantes_aleatorios(1)[0]
-        self._respuesta = list(parametros.agregacion([{"$match": {"concursantes.pais": self._pais}},
-                                                 {"$sort": {"anyo": 1}},
-                                                 {"$limit": 1},
-                                                 {"$project": {"_id": 0, "anyo": 1}}
-                                                ]))[0]["anyo"]
-        self._opciones_invalidas = parametros.anyo_aleatorio(3, [{"$match": {"anyo": {"$ne": self._respuesta}}}])
+        self._respuesta = list(parametros.agregacion([
+            {"$match": {"concursantes.pais": self._pais}},
+            {"$sort": {"anyo": 1}},
+            {"$limit": 1},
+            {"$project": {"_id": "$anyo"}}
+        ]))[0]["_id"]
+        self._opciones_invalidas = [item["_id"] for item in list(parametros.agregacion([
+            {"$match": {"anyo": {"$ne": self._respuesta}}},
+            {"$group": {"_id": "$anyo"}},
+            {"$project": {"_id": 1}},
+            {"$sample": {"size": 3}}
+        ]))]
 
     @property
     def pregunta(self) -> str:
@@ -104,12 +110,13 @@ class CancionPais(Trivia):
 
     def __init__(self, parametros: OperacionesEurovision):
         # Obtenemos una participacion para la respuesta
-        self._cancion = parametros.participacion_aleatoria(1)[0]["cancion"]
-        self._respuesta = list(parametros.agregacion([
-            {"$unwind": "$concursantes"},
+        self._cancion = parametros.participacion_aleatoria(1, [
+            {"$addFields": {"concursantes": "$concursantes.cancion"}}
+        ])[0]
+        self._respuesta = parametros.participacion_aleatoria(1, [
             {"$match": {"concursantes.cancion": self._cancion}},
-            {"$project": {"_id": 0, "pais": "$concursantes.pais"}}
-        ]))[0]["pais"]
+            {"$addFields": {"concursantes": "$concursantes.pais"}},
+        ])[0]
         self._opciones_invalidas = parametros.participacion_aleatoria(3, [
             {"$match": {"concursantes.pais": {"$ne": self._respuesta}}},
             {"$group": {"_id": "$concursantes.pais"}},
@@ -147,15 +154,15 @@ class MejorClasificacion(Trivia):
     """
     def __init__(self, parametros: OperacionesEurovision):
         self._anyo = parametros.anyo_aleatorio(1)[0]
-        result = list(parametros.agregacion([{"$match": {"anyo": self._anyo}}, {"$unwind": "$concursantes"}, {"$limit": 1},
-                                             {"$project": {"_id": 0, "pais": "$concursantes.pais", "cancion": "$concursantes.cancion"}}
-                                            ]))[0]
+        result = parametros.participacion_aleatoria(1, [
+            {"$match": {"anyo": self._anyo}},
+            {"$sort": {"concursantes.puntuacion": -1}},
+            {"$limit": 1},
+        ])[0]
         self._respuesta = (result["pais"], result["cancion"])
-        results = parametros.participacion_aleatoria(3, [{"$match": {"$and": [{"anyo": self._anyo},
-                                                                                       {"concursantes.pais": {
-                                                                                            "$ne" : result["pais"]}}]
-                                                                                       }}
-                                                                            ])
+        results = parametros.participacion_aleatoria(3, [
+            {"$match": {"$and": [{"anyo": self._anyo}, {"concursantes.pais": { "$ne" : result["pais"]}}]}}
+        ])
         self._opciones_invalidas = [ (result["pais"], result["cancion"]) for result in results ]
 
     @property
@@ -182,21 +189,22 @@ class MejorMediaPuntos(Trivia):
     IMPORTANTE: la solucion debe ser unica.
     """
     def __init__(self, parametros: OperacionesEurovision):
-        self._anyo_inicial = parametros.anyo_aleatorio(1, [{"$match": {"anyo": {"$lt": 2022}}}])[0]
-        self._anyo_final = parametros.anyo_aleatorio(1, [{"$match": {"anyo": {"$gt": self._anyo_inicial}}}])[0]
+        self._anyo_inicial = parametros.anyo_aleatorio(1, [
+            {"$match": {"anyo": {"$lt": 2022}}}
+        ])[0]
+        self._anyo_final = parametros.anyo_aleatorio(1, [
+            {"$match": {"anyo": {"$gt": self._anyo_inicial}}}
+        ])[0]
         self._respuesta = parametros.participacion_aleatoria(1, [
-            {"$match": {"$and": [{"anyo": {"$gte": 2019}}, {"anyo": {"$lte": 2022}}]}},
+            {"$match": {"$and": [{"anyo": {"$gte": self._anyo_inicial}}, {"anyo": {"$lte": self._anyo_final}}]}},
             {"$group": {"_id": "$concursantes.pais", "media": {"$avg": "$concursantes.puntuacion"}}},
             {"$sort": {"media": -1}},
+            {"$limit": 1},
             {"$addFields": {"concursantes": "$_id"}},
         ])[0]
-        print(self._respuesta)
         self._opciones_invalidas = parametros.participacion_aleatoria(3, [
             {"$match": {"$and": [{"anyo": {"$gte": self._anyo_inicial}}, {"anyo": {"$lte": self._anyo_final}}]}},
-            {"$group": {
-                "_id": "$concursantes.pais",
-                "media": {"$avg": "$concursantes.puntuacion"}
-            }},
+            {"$group": { "_id": "$concursantes.pais", "media": {"$avg": "$concursantes.puntuacion"}}},
             {"$addFields": {"concursantes": "$_id"}},
             {"$match": {"concursantes": {"$ne": self._respuesta}}}
         ])

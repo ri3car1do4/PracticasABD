@@ -48,9 +48,9 @@ class PaisActuacion(TriviaVideo):
     ¿Que pais represento la cancion?
     """
     def __init__(self, parametros: OperacionesEurovision):
-        result = list(parametros.participacion_aleatoria(1, [
+        result = parametros.participacion_aleatoria(1, [
             {"$match": {"concursantes.url_youtube": {"$ne": None}}}
-        ]))[0]
+        ])[0]
         self._url = result["url_youtube"]
         self._respuesta = result["pais"]
         self._opciones_invalidas = parametros.paises_participantes_aleatorios(3, [
@@ -85,15 +85,13 @@ class NombreCancion(TriviaVideo):
     NOTA: para dificultar la respuesta, se deben seleccionar canciones del mismo pais.
     """
     def __init__(self, parametros: OperacionesEurovision):
-        result = list(parametros.participacion_aleatoria(1, [
+        result = parametros.participacion_aleatoria(1, [
             {"$match": {"concursantes.url_youtube": {"$ne": None}}}
-        ]))[0]
+        ])[0]
         self._url = result["url_youtube"]
         self._respuesta = result["cancion"]
         self._opciones_invalidas = [item["cancion"] for item in parametros.participacion_aleatoria(3, [
-            {"$match": {"$and": [{"concursantes.cancion": {"$ne" : self._respuesta}},
-                                 {"concursantes.pais": result["pais"]}
-                                ]}}
+            {"$match": {"$and": [{"concursantes.cancion": {"$ne" : self._respuesta}}, {"concursantes.pais": result["pais"]}]}}
         ])]
 
     @property
@@ -124,15 +122,13 @@ class InterpreteCancion(TriviaVideo):
     NOTA: para dificultar la respuesta, se deben seleccionar interpretes del mismo pais.
     """
     def __init__(self, parametros: OperacionesEurovision):
-        result = list(parametros.participacion_aleatoria(1, [
+        result = parametros.participacion_aleatoria(1, [
             {"$match": {"concursantes.url_youtube": {"$ne": None}}}
-        ]))[0]
+        ])[0]
         self._url = result["url_youtube"]
         self._respuesta = result["artista"]
         self._opciones_invalidas = [item["artista"] for item in parametros.participacion_aleatoria(3, [
-            {"$match": {"$and": [{"concursantes.artista": {"$ne" : self._respuesta}},
-                                 {"concursantes.pais": result["pais"]}
-                                ]}}
+            {"$match": {"$and": [{"concursantes.artista": {"$ne" : self._respuesta}}, {"concursantes.pais": result["pais"]}]}}
         ])]
 
     @property

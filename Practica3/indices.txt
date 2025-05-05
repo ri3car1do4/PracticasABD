@@ -1,0 +1,9 @@
+Para mejorar la eficiencia de las consultas a la base de datos, deberíamos definir los índices en los campos 
+que utilizamos de forma recurrente (en varias consultas) para las distintas operaciones de la aplicación.
+
+En nuestro caso, el campo anyo se utiliza en varias consultas, por ejemplo para obtener los detalles de una edición concreta mediante find_one_or_404({"anyo": anyo}), 
+por lo que un índice sobre esa variable facilitaría el acceso rápido a los documentos correspondientes a cada edición. De igual forma, encontramos ejemplos similares como 
+país, que aparece en la proyección de los documentos, y es un dato que se muestra de forma destacada (como país organizador), por lo que también sería útil indexarlo, ya que se realizan búsquedas y agrupaciones por país.
+
+Por último, en la sección de trivia se usan filtros por listas de anyos y paises pasadas por parámetros, lo que indica que estos campos pueden intervenir en operaciones de búsqueda o generación de preguntas aleatorias. 
+Añadir índices sobre estas variables seria útil para consultas que tengan multiples condiciones

@@ -33,23 +33,20 @@ class GestionInvestigacion:
             LIMIT 10
             """, database_=self._db
         )
-        return [(record["address"], record["num_crimenes"]) for record in records]
+        return [dict(record) for record in records]
 
     def consulta_1_1_2(self) -> Dict[str, int]:
         # Devuelve cuántos crímenes se han cometido de cada tipo (propiedad type de los nodos con la etiqueta Crime).
         # En lugar de devolver la solución como una lista de diccionarios, devuelve un único diccionario que tiene
         # como claves los distintos tipos, y como valores el número de crímenes cometidos de ese tipo. A los crímenes
         # sin tipo, se le asigna el nombre Sin tipo en la solución.
-        sol = dict()
         records, _, _ = self._driver.execute_query(
             """
             MATCH (c:Crime)
             RETURN coalesce(c.type, "Sin tipo") AS tipo, count(*) AS num_crimenes
             """, database_=self._db
         )
-        for record in records:
-            sol[record["tipo"]] = record["num_crimenes"]
-        return sol
+        return {record["tipo"]: record["num_crimenes"] for record in records }
 
     # Consulta 1.1.3
     def crimenes_investigados_inspector(self, apellido: str) -> List[Dict[str, str]]:
@@ -63,7 +60,7 @@ class GestionInvestigacion:
             RETURN c.id AS id_crimen, c.type AS tipo_crimen, c.last_outcome AS progreso
             """, database_=self._db, apellido=apellido
         )
-        return [{ "id": record["id_crimen"], "tipo_crimen": record["tipo_crimen"], "progreso": record["progreso"] } for record in records]
+        return [dict(record) for record in records]
 
     # Consulta 1.1.4 (REVISAR)
     def personas_llamadas_sospechosas(self, id_crimen: str) -> List[Dict[str, Any]]:
@@ -79,13 +76,13 @@ class GestionInvestigacion:
             MATCH (p)-[:HAS_PHONE]->(ph:Phone)<-[:CALLER]-(pc:PhoneCall)
             WHERE toInteger(pc.call_duration) > 30
             MATCH (pc)-[:CALLED]->(ph2:Phone)<-[:HAS_PHONE]-(p2:Person)
-            RETURN p.name AS nombre_sospechoso, p.surname AS apellido_sospechoso, p2.name AS nombre_llamada, 
-            p2.surname AS apellido_llamada, coalesce(count(pc), 0) AS num_llamadas
+            WITH p.name AS nombre_sospechoso, p.surname AS apellido_sospechoso, p2.name AS nombre_llamada, 
+            p2.surname AS apellido_llamada, count(pc) AS num_llamadas
+            WHERE num_llamdas > 1 
+            RETURN nombre_sospechoso, apellido_sospechoso, nombre_llamada, apellido_llamada, num_llamadas
             """, database_=self._db, id_crimen=id_crimen
         )
-        return [{ "nombre_sospechoso": record["nombre_sospechoso"], "apellido_sospechoso": record["apellido_sospechoso"],
-                  "nombre_llamada": record["nombre_llamada"], "apellido_llamada": record["apellido_llamada"],
-                  "num_llamadas": record["num_llamadas"] } for record in records]
+        return [dict(record) for record in records]
 
     # Consulta 1.2.1
     def lista_crimenes(self, num_placa: str, delito: str) -> List[str]:
@@ -113,17 +110,14 @@ class GestionInvestigacion:
         # información de cada sospechoso. Esquema: (id, nombre, apellido). El id se refiere al campo nhs_no.
         #
         # Nota: dentro de collect(), se pueden renombrar los campos con la notación de diccionario, p.e. collect({nombre: p.name}).
-        sol = dict()
-        for id in ids_crimen:
-            records, _, _ = self._driver.execute_query(
-                """
-                MATCH (p:Person)-[:PARTY_TO]->(c:Crime)
-                WHERE c.id = $id
-                RETURN p.nhs_no AS id, collect({nombre: p.name, apellido: p.surname}) AS nombre_apellido
-                """, database_=self._db, id=id
-            )
-            sol[records[0]["id"]] = records[0]["nombre_apellido"]
-        return sol
+        records, _, _ = self._driver.execute_query(
+            """
+            MATCH (p:Person)-[:PARTY_TO]->(c:Crime)
+            WHERE c.id in &lista_ids
+            RETURN p.nhs_no AS id, collect({nombre: p.name, apellido: p.surname}) AS nombre_apellido
+            """, database_=self._db, list_ids=ids_crimen
+        )
+        return {record["id"]: record["nombre_apellido"] for record in records}
 
     # Consulta 1.2.3
     def informacion_delito(self, ids_crimen: List[str]) -> Dict[str, Dict[str, Any]]:
@@ -135,19 +129,40 @@ class GestionInvestigacion:
         # diccionario con la localización y la lista de pruebas. Este diccionario tiene como clave el id del delito
         # correspondiente, y como valor un diccionario con dos campos: **localizacion** tiene la dirección del delito
         # (address) y **prueba** contiene una lista con las descripciones de las pruebas involucradas.
-        sol = dict()
-        for id in ids_crimen:
-            records, _, _ = self._driver.execute_query(
-                """
-                MATCH (c:Crime)-[:OCCURRED_AT]->(l:Location)
-                WHERE c.id = $id
-                MATCH (o:Object)-[:INVOLVED_IN]->(c)
-                WHERE  o.type = "Evidence"
-                RETURN l.address AS localizacion, collect(o.description) AS pruebas
-                """, database_=self._db, id=id
-            )
-            sol[id] = {"localizacion": records[0]["localizacion"], "pruebas": records[0]["pruebas"]}
-        return sol
+        records, _, _ = self._driver.execute_query(
+            """
+            MATCH (c:Crime)-[:OCCURRED_AT]->(l:Location)
+            WHERE c.id in $lista_ids
+            MATCH (o:Object)-[:INVOLVED_IN]->(c)
+            WHERE  o.type = "Evidence"
+            RETURN l.address AS localizacion, collect(o.description) AS pruebas
+            """, database_=self._db, lista_ids=ids_crimen
+        )
+
+    def conexiones_sospechosos(self, sospechosos: List[str]) -> Dict[Tuple[str, str], List[List[str]]]:
+        # Una vez hemos recopilado más información sobre los sospechosos, queremos averiguar si hay algún tipo de relación
+        # entre ellos. Para ello, dada una lista de sospechosos (identificados por su id), devuelve todas las conexiones
+        # entre los mismos, usando todos los caminos más cortos. Esto quiere decir que por cada par de sospechosos en la
+        # lista, se deben construir todos los caminos más cortos que los conecten. Para que la consulta no se demasiado
+        # costosa, solo vamos a considerar caminos de longuitud máxima 3. Además, para evitar repeticiones en el resultado,
+        # comprobaremos que id_p1 < id_p2, donde id_p1 y id_p2 son los ids de dos sospechosos.
+        #
+        # Los sospechosos pueden esar conectados por las siguientes relaciones: KNOWS, KNOWS_LW (vive con esa persona),
+        # KNOWS_SN (conoce por relaciones sociales), FAMILY_REL (son familia), KNOWS_PHONE (conoce el tlf). El formato
+        # de salida es un diccionario que, dada la tupla de ids de dos sospechosos ordenados por su id, devuelva una lista
+        # con las conexiones. Estas conexiones contienen la siguiente información: (id, nombre, apellido) de cada una
+        # de estas personas. Además, se devuelven los resultados sin repeticiones.
+        records, _, _ = self._driver.execute_query(
+            """
+            MATCH (p1: Person)
+            MATCH (p2: Person)
+            WHERE p1.nhs_no in $sospechosos AND p2.nhs_no in $sospechosos AND p1.nhs_no < p2.nhs_no
+            MATCH p = allShortestPaths((p1)-[:KNOWS | KNOWS_LW | KNOWS_PHONE | KNOWS_SN | FAMILY_REL*..3]-(p2))
+            RETURN p1.nhs_no AS id1, p2.nhs_no AS id2, collect(DISTINCT [nodo in nodes(p) | 
+            {id:nodo.nhs_no, nombre:nodo.name, apellido:nodo.surname}]) AS relacionados
+            """, database_=self._db, sospechosos=sospechosos
+        )
+        return {(record["id1"], record["id2"]): record["relacionados"] for record in records}
 
 if __name__ == "__main__":
     gestion_investigacion = GestionInvestigacion()
@@ -157,4 +172,5 @@ if __name__ == "__main__":
     # print(gestion_investigacion.personas_llamadas_sospechosas("34f16237cac32a82724094222dd3b92bfe9f415864638071e144154d078d0af8"))
     # print(gestion_investigacion.lista_crimenes("26-5234182", "Drugs"))
     # print(gestion_investigacion.sospechosos_crimenes(gestion_investigacion.lista_crimenes("26-5234182", "Drugs")))
-    print(gestion_investigacion.informacion_delito(gestion_investigacion.lista_crimenes("26-5234182", "Drugs")))
+    # print(gestion_investigacion.informacion_delito(gestion_investigacion.lista_crimenes("26-5234182", "Drugs")))
+    print(gestion_investigacion.conexiones_sospechosos(['879-22-8665', '249-54-6589', '455-19-0708']))

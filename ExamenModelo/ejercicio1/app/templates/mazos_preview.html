@@ -1,0 +1,25 @@
+<!-- Template para mostrar una lista de mazos en modo preview.
+  Recibe los siguientes parametros:
+  * mazos: paginacion de objetos Mazo.
+  * id2carta: diccionario que vincula el id de una carta al objeto Carta
+    correspondiente. Solo debe incluir las cartas que se van a mostrar.
+  * id_mazo2cartas_en_mazo: diccionario que vincula el id de un mazo con la lista de
+    objetos CartaEnMazo que se quieren mostrar. La lista debe estar ordenada
+    respecto a la especificacion del sistema.
+-->
+
+{% extends "base_with_navbar.html" %}
+{% from "bootstrap5/pagination.html" import render_pagination %}
+{% from "macro_mostrar_mazo.html" import mostrar_mazo_preview %}
+
+
+{% block title %}
+Preview - Lista de Mazos
+{% endblock %}
+
+{% block content %}
+{% for mazo in mazos %}
+  {{ mostrar_mazo_preview(mazo, id2carta, id_mazo2cartas_en_mazo[mazo.id]) }}
+{% endfor %}
+{{ render_pagination(mazos) }}
+{% endblock %}

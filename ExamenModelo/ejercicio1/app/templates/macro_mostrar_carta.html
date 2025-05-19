@@ -1,0 +1,22 @@
+<!-- Macro para mostrar una carta. Debe estar dentro de un contenedor -->
+{% macro mostrar_carta(carta) %}
+  <!-- Mostramos una imagen por defecto si no existe -->
+  {% if carta.imagen_scryfall %}
+    <img src={{ carta.imagen_scryfall }} class="img-fluid" >
+  {% else %}
+    <img class="img-fluid" src={{ url_for('static', filename='carta_defecto.jpg') }}>
+  {% endif %}
+  <h5 class="text-center mt-3"> {{carta.nombre}} </h5>
+
+  <!-- Solo mostramos el precio si esta asociado -->
+  {% if carta.precio %}
+    <p class="text-center"> Precio en Dolares: {{ carta.precio }}</p>
+  {% else %}
+  {% endif %}
+
+  <!-- Solo mostramos la URL de compra si existe -->
+  {% if carta.url_mkm %}
+    <p class="text-center"> Comprar en <a href={{ carta.url_mkm }}> Magic Card Market </a> </p>
+  {% else %}
+  {% endif %}
+{% endmacro %}

@@ -1,0 +1,34 @@
+<!-- Template para incluir una carta en un mazo. Recibe los siguientes parametros:
+  * id_mazo: id del mazo en el que se quiere introducir la carta.
+  * form: formulario AnyadirCarta() para incluir la carta correspondiente.
+ -->
+
+{% extends "base_with_navbar.html" %}
+{% from "bootstrap5/form.html" import render_form %}
+{% from "macro_mostrar_mazo.html" import mostrar_cartas_mazo %}
+
+{% block title %}
+Incluir Carta Mazo {{ id_mazo }}
+{% endblock %}
+
+{% block content %}
+<h1 class="text-center"> Incluir Nueva Carta en Mazo {{ id_mazo }} </h1>
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-6">
+        {{ render_form(form)}}
+    </div>
+  </div>
+  <div class="row justify-content-center">
+
+    <!-- mt-4: Añade 4px el margen superior (top) -->
+    <div class="col-6 mt-4">
+      <!-- btn: renderiza un botón
+           btn-primary: tipo de botón
+           form-control: adapta el tamaño al de la columna
+      -->
+    <a class="btn btn-primary form-control" href={{ url_for('mostrar_mazo_completo', id_mazo=id_mazo) }} >Volver </a>
+    </div>
+  </div>
+{% endblock %}

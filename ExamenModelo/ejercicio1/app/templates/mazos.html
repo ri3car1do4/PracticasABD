@@ -1,0 +1,35 @@
+<!-- Template para mostrar un mazo concreto con todas sus cartas.
+  Recibe los siguientes parametros:
+  * mazo: objeto Mazo.
+  * id2carta: diccionario que vincula el id de una carta al objeto Carta
+    correspondiente. Solo debe incluir las cartas que se van a mostrar.
+  * cartas_base: lista de objetos CartaEnMazo que no se encuentran en el banquillo
+    del mazo que se quiere mostrar.
+  * cartas_banquillo: lista de objetos CartaEnMazo que se encuentran en el banquillo
+    del mazo que se quiere mostrar.
+-->
+
+{% extends "base_with_navbar.html" %}
+{% from "macro_mostrar_mazo.html" import mostrar_mazo %}
+
+{% block title %}
+Mazo - {{ mazo.id }}
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-6 mt-4 mb-4">
+        <a class="btn btn-primary form-control"
+           href={{ url_for('introducir_carta_en_mazo', id_mazo=mazo.id) }}>
+            Añadir cartas
+        </a>
+    </div>
+  </div>
+</div>
+
+{{ mostrar_mazo(mazo, id2carta, cartas_base, cartas_banquillo) }}
+
+{% endblock %}

@@ -1,0 +1,39 @@
+<!-- Template que muestra la lista de cartas. Debe recibir un parametro "page",
+ que contiene una pagina de resultado de objetos Carta. -->
+{% extends "base_with_navbar.html" %}
+{% from "bootstrap5/pagination.html" import render_pagination %}
+{% from "macro_mostrar_carta.html" import mostrar_carta %}
+
+{% block title %}
+Lista de Cartas
+{% endblock %}
+
+
+{% block content %}
+<h1 class="text-center mb-4"> Lista de cartas </h1>
+<div class="container-fluid">
+  <!-- Iteramos sobre las cartas con un 'enumerate' -->
+  {% for carta in page %}
+    <!-- Mostramos 4 elementos por fila. Cada 4 elementos, introducimos una nueva fila -->
+    <!-- Para acceder a la iteracion actual, usamos la variable especial "loop.index0" -->
+    {% if loop.index0 % 4 == 0 %}
+      <div class="row">
+    {% endif %}
+    <!-- Invocamos a mostrar_carta dentro de un div -->
+    <div class="col-3 my-3">
+        {{ mostrar_carta(carta) }}
+    </div>
+    <!-- Tenemos que cerrar el elemento <div> -->
+    {% if loop.index0 % 4 == 3 %}
+      </div>
+    {% endif %}
+    {% endfor %}
+
+  <!-- Renderizamos el widged para la paginacion -->
+  <div class="row">
+    <div class="col-6">
+        {{ render_pagination(page) }}
+    </div>
+  </div>
+</div>
+{% endblock %}

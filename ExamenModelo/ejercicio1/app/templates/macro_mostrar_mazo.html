@@ -1,0 +1,54 @@
+{% from "macro_mostrar_carta.html" import mostrar_carta %}
+
+<!-- Macro para listar las cartas, n por cada columna. Si preview es True,
+entonces no se muestra el numero de copias -->
+{% macro mostrar_cartas_mazo(lista_cartas, id2carta, n, preview) %}
+  <div class="container-fluid">
+    {% for carta_en_mazo in lista_cartas %}
+          {% if loop.index0 % n == 0 %}
+            <div class="row">
+          {% endif %}
+          <!-- Creo un string para generar el numero de columnas de la clase -->
+          <div class="{{ 'col-{} my-3'.format(12 // n) }}">
+              {{ mostrar_carta(id2carta[carta_en_mazo.id_carta]) }}
+              <!-- Si no es preview, mostramos el numero de copias y si es banquillo -->
+              {% if not preview %}
+                  <p class="text-center"> Número de copias: {{ carta_en_mazo.numero_copias }} </p>
+              {% endif %}
+          </div>
+          <!-- Tenemos que trabajar con aritmetica modular para detectar cuando
+            abrir y cerrar los div -->
+          {% if loop.index0 % n == n-1 %}
+            </div>
+          {% endif %}
+      {% endfor %}
+  </div>
+{% endmacro %}
+
+<!-- Macro para mostrar un mazo completo. Pasamos las cartas del mazo
+ y las cartas del banquillo en 2 parámetros distintos-->
+{% macro mostrar_mazo(mazo, id2carta, cartas_mazo, cartas_banquillo) %}
+  <h2 class="text-center"> Mazo: {{ mazo.id }} </h2>
+  <h2 class="text-center"> Nombre: {{ mazo.nombre }} </h2>
+
+<h2 class="text-center"> Numero de Cartas: {{ mazo.num_cartas }} </h2>
+
+    <h3 class="text-center"> Cartas en el Mazo Principal </h3>
+    {{ mostrar_cartas_mazo(cartas_mazo, id2carta, 4, False) }}
+
+    <h3 class="text-center"> Cartas en el Banquillo: </h3>
+    {{ mostrar_cartas_mazo(cartas_banquillo, id2carta, 4, False) }}
+{% endmacro %}
+
+
+<!-- Macro para mostrar un preview del mazo. Mostramos las cartas sin ningún orden -->
+{% macro mostrar_mazo_preview(mazo, id2carta, cartas) %}
+  <!-- Vinculamos el mazo si clickamos encima -->
+  <h3 class="text-center"> <a href = {{ url_for('mostrar_mazo_completo', id_mazo=mazo.id) }}> Mazo: {{ mazo.id }} </a> </h3>
+  <h3 class="text-center"> Nombre: {{ mazo.nombre }} </h3>
+  <h3 class="text-center"> Numero de Cartas: {{ mazo.num_cartas }} </h3>
+
+
+  <!-- Asumo que me vienen dadas las cartas que quiero mostrar en el preview -->
+  {{ mostrar_cartas_mazo(cartas, id2carta, 6, True) }}
+{% endmacro %}

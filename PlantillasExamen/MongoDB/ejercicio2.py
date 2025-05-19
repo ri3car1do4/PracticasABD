@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Tuple
 
 from bson import ObjectId
+from dotenv import load_dotenv
 from lorem_text import lorem
 import os
 import pymongo
@@ -10,6 +11,7 @@ import pymongo
 class GestionFdIx:
 
     def __init__(self):
+        load_dotenv(override=True)
         cliente = pymongo.MongoClient(f"mongodb://{os.environ.get('HOST')}:{os.environ.get('PORT')}/{os.environ.get('DATABASE')}")
         # OJOOOOOO
         db = cliente["fdix"]
